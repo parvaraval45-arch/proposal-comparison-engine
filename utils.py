@@ -252,10 +252,20 @@ def generate_pdf_report(
 
     def _safe_multi_cell(w, h, txt):
         """Write multi_cell, adding a page if near the bottom."""
-        txt = _sanitize_for_pdf(str(txt))
+        txt = _sanitize_for_pdf(str(txt)).strip()
+        if not txt:
+            return
         if pdf.get_y() > pdf.h - 35:
             pdf.add_page()
-        pdf.multi_cell(w, h, txt)
+        try:
+            pdf.multi_cell(w, h, txt)
+        except Exception:
+            # If rendering fails, try on a fresh page
+            pdf.add_page()
+            try:
+                pdf.multi_cell(w, h, txt)
+            except Exception:
+                pass  # Skip un-renderable text
 
     def _format_value(value: Any) -> str:
         """Format a value from extracted terms for display."""
@@ -430,9 +440,9 @@ def generate_pdf_report(
                     label = field.replace("_", " ").title()
                     formatted = _format_value(value)
                     pdf.set_font("Helvetica", "B", 8)
-                    _safe_multi_cell(0, 4, f"  {label}:")
+                    pdf.cell(50, 4, f"{label}:", new_x="LMARGIN", new_y="NEXT")
                     pdf.set_font("Helvetica", "", 8)
-                    _safe_multi_cell(0, 4, f"    {formatted}")
+                    _safe_multi_cell(0, 4, formatted)
                     pdf.ln(1)
             pdf.ln(3)
 
