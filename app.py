@@ -7,6 +7,7 @@ import json
 import pathlib
 import re
 
+import pandas as pd
 import streamlit as st
 
 from airbnb_context import AIRBNB_CONTEXT
@@ -590,6 +591,118 @@ with st.sidebar:
     can_analyze = valid_proposals >= 2 and total_weight == 100
 
 
+# ── Airbnb Sourcing Context panel (above tabs) ─────────────────────────────
+_n_bench = len(AIRBNB_CONTEXT.benchmarks)
+_n_usage = len(AIRBNB_CONTEXT.usage)
+_n_budget = len(AIRBNB_CONTEXT.budget)
+_n_integ = len(AIRBNB_CONTEXT.integrations)
+
+st.markdown(
+    f'<p style="font-size:13px;color:#484848;margin:4px 0 8px 0;">'
+    f"Airbnb Sourcing Context loaded &mdash; "
+    f"{_n_bench} industry benchmarks &middot; "
+    f"{_n_usage} fiscal-year forecasts &middot; "
+    f"{_n_budget}-year FP&amp;A envelope &middot; "
+    f"{_n_integ} integration dependencies"
+    f"</p>",
+    unsafe_allow_html=True,
+)
+
+with st.expander("Airbnb Sourcing Context — Knowledge Base", expanded=False):
+    _kb_col_left, _kb_col_right = st.columns(2)
+
+    # --- Industry Benchmarks (top-left) ---
+    with _kb_col_left:
+        st.markdown("##### Industry benchmarks")
+        _bench_df = pd.DataFrame(
+            [
+                {
+                    "Metric": b.metric,
+                    "P10": b.p10,
+                    "Median": b.median,
+                    "P90": b.p90,
+                    "Unit": b.unit,
+                }
+                for b in AIRBNB_CONTEXT.benchmarks
+            ]
+        )
+        st.dataframe(_bench_df, use_container_width=True, hide_index=True)
+
+    # --- Usage Forecast (top-right) ---
+    with _kb_col_right:
+        st.markdown("##### Usage forecast")
+        _usage_df = pd.DataFrame(
+            [
+                {
+                    "FY": u.fiscal_year,
+                    "Expected Seats": f"{u.expected_seats:,}",
+                    "YoY Growth": (
+                        f"{u.yoy_growth_pct:.0f}%" if u.yoy_growth_pct is not None else "—"
+                    ),
+                    "Notes": u.notes,
+                }
+                for u in AIRBNB_CONTEXT.usage
+            ]
+        )
+        st.dataframe(_usage_df, use_container_width=True, hide_index=True)
+
+    _kb_col_left2, _kb_col_right2 = st.columns(2)
+
+    # --- FP&A Budget (bottom-left) with editable FY-26 override ---
+    with _kb_col_left2:
+        st.markdown("##### FP&A budget")
+        _budget_df = pd.DataFrame(
+            [
+                {
+                    "FY": e.fiscal_year,
+                    "License": f"${e.license_budget:,.0f}",
+                    "Implementation": (
+                        f"${e.implementation_pool:,.0f}"
+                        if e.implementation_pool is not None
+                        else "—"
+                    ),
+                    "Support": f"${e.support_budget:,.0f}",
+                }
+                for e in AIRBNB_CONTEXT.budget
+            ]
+        )
+        st.dataframe(_budget_df, use_container_width=True, hide_index=True)
+
+        _current_fy26 = next(
+            (e.license_budget for e in AIRBNB_CONTEXT.budget if e.fiscal_year == "FY-2026"),
+            0.0,
+        )
+        _new_fy26 = st.number_input(
+            "Override FY-26 license budget ($)",
+            min_value=0,
+            value=int(_current_fy26),
+            step=10_000,
+            key="override_fy26_license",
+        )
+        if int(_new_fy26) != int(_current_fy26):
+            AIRBNB_CONTEXT.update_budget("FY-2026", float(_new_fy26))
+        st.caption(
+            "Edits persist for the current session. Adjust to model budget "
+            "revisions before re-running analysis."
+        )
+
+    # --- Integration Dependencies (bottom-right) ---
+    with _kb_col_right2:
+        st.markdown("##### Integration dependencies")
+        _integ_df = pd.DataFrame(
+            [
+                {
+                    "Dep ID": d.dep_id,
+                    "Description": d.description,
+                    "Criticality": d.criticality,
+                    "Owner": d.owner,
+                }
+                for d in AIRBNB_CONTEXT.integrations
+            ]
+        )
+        st.dataframe(_integ_df, use_container_width=True, hide_index=True)
+
+
 # ── Main content — 3 Tabs ──────────────────────────────────────────────────
 tab_input, tab_compare, tab_brief = st.tabs(
     ["\U0001f4c4 Input Proposals", "\U0001f4ca Comparison Matrix", "\U0001f4cb Negotiation Brief"]
@@ -871,6 +984,28 @@ with tab_brief:
             f"beyond this quantitative assessment.</p>",
             variant="coral",
         )
+
+        # ── Grounded in (footer to the recommendation) ──────────────────
+        grounding_sources = comparison.get("grounding_sources", []) or []
+        if grounding_sources:
+            st.markdown('<hr class="divider">', unsafe_allow_html=True)
+            st.markdown(
+                '<p style="font-size:12px;color:#767676;font-weight:600;'
+                'letter-spacing:0.4px;margin:0 0 6px 0;">Grounded in</p>',
+                unsafe_allow_html=True,
+            )
+            _items_html = "".join(
+                f'<li style="margin:2px 0;">'
+                f"{_esc(s.get('record', ''))} &mdash; "
+                f"<span style='color:#999999;'>{_esc(s.get('used_for', ''))}</span>"
+                f"</li>"
+                for s in grounding_sources
+            )
+            st.markdown(
+                f'<ul style="font-size:13px;color:#767676;padding-left:18px;'
+                f'margin:0 0 16px 0;list-style-type:disc;">{_items_html}</ul>',
+                unsafe_allow_html=True,
+            )
 
         # Section B: Comparative Highlights
         st.markdown("##### Comparative Highlights")
