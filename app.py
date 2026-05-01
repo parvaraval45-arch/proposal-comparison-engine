@@ -1105,16 +1105,16 @@ with tab_brief:
     if not st.session_state.get("analysis_done"):
         st.markdown(
             '<div class="placeholder-text">'
-            '<p style="font-size:40px;margin-bottom:8px;">\U0001f4cb</p>'
-            "<p>Run an analysis to see the negotiation brief</p></div>",
+            "<p>Run an analysis to see the negotiation brief.</p></div>",
             unsafe_allow_html=True,
         )
     else:
         comparison = st.session_state["comparison_data"]
         extracted_list = st.session_state["extracted_data"]
+        findings_list = st.session_state.get("findings_per_supplier", []) or []
 
-        # Section A: Executive Recommendation
-        st.markdown("##### Executive Recommendation")
+        # ─── Section A: Recommendation ──────────────────────────────────
+        st.markdown("##### Recommendation")
 
         rec_supplier = comparison.get("recommended_supplier", "N/A")
         conf = str(comparison.get("confidence_level", "medium")).lower()
@@ -1129,19 +1129,15 @@ with tab_brief:
 
         render_card(
             f'<p style="font-size:22px;font-weight:700;color:#222222;margin:0 0 8px 0;">'
-            f'{rec_supplier} &nbsp;'
+            f'{_esc(rec_supplier)} &nbsp;'
             f'<span class="{conf_badge}">{conf.upper()} CONFIDENCE</span></p>'
             f'<p style="margin:8px 0;line-height:1.6;">{exec_summary}</p>'
             f'<p style="font-style:italic;color:#767676;font-size:13px;margin-top:12px;">'
-            f"{exec_rationale}</p>"
-            f'<p style="font-style:italic;color:#767676;font-size:12px;margin-top:8px;">'
-            f"Recommendation based on weighted criteria analysis. Final decision "
-            f"should consider strategic context, relationship history, and factors "
-            f"beyond this quantitative assessment.</p>",
+            f"{exec_rationale}</p>",
             variant="coral",
         )
 
-        # ── Grounded in (footer to the recommendation) ──────────────────
+        # Grounded-in footer
         grounding_sources = comparison.get("grounding_sources", []) or []
         if grounding_sources:
             st.markdown('<hr class="divider">', unsafe_allow_html=True)
@@ -1163,63 +1159,145 @@ with tab_brief:
                 unsafe_allow_html=True,
             )
 
-        # Section B: Comparative Highlights
-        st.markdown("##### Comparative Highlights")
-        highlights = comparison.get("comparative_highlights", [])
-        for h in highlights:
-            leader = _esc(h.get("leader", ""))
-            dimension = _esc(h.get("dimension", ""))
-            insight = _esc(h.get("insight", ""))
-            render_card(
-                f'<p style="margin:0 0 6px 0;"><strong>{dimension}</strong> &nbsp; '
-                f'<span class="badge-teal">{leader}</span></p>'
-                f'<p style="margin:0;color:#484848;">{insight}</p>',
+        # ─── Section B: What the AI Caught ──────────────────────────────
+        st.markdown("##### What the AI caught")
+
+        # Consolidate hidden risks across all suppliers
+        all_hidden = []
+        for fnd in findings_list:
+            for r in fnd.get("hidden_risks", []) or []:
+                all_hidden.append(r)
+
+        # Severity ranking: high first, medium variants next, low last
+        def _sev_rank(s):
+            s = str(s).lower()
+            if s == "high":
+                return 0
+            if s == "low":
+                return 2
+            return 1  # any medium-* variant
+
+        all_hidden.sort(key=lambda r: _sev_rank(r.get("severity", "low")))
+
+        if not all_hidden:
+            st.caption(
+                "No hidden findings surfaced. Run with the sample scenario "
+                "to see the deterministic engine flag exit risks, compliance "
+                "gaps, and pricing anomalies."
+            )
+        else:
+            for risk in all_hidden[:5]:
+                sev_raw = str(risk.get("severity", "")).lower()
+                sev_label = "HIGH" if sev_raw == "high" else (
+                    "LOW" if sev_raw == "low" else "MEDIUM"
+                )
+                badge_cls = {
+                    "HIGH": "badge-red",
+                    "MEDIUM": "badge-amber",
+                    "LOW": "badge-green",
+                }[sev_label]
+                supplier = _esc(risk.get("supplier_name", ""))
+                headline = _esc(risk.get("headline", ""))
+                evidence = _esc(risk.get("supporting_evidence", ""))
+                dollar = risk.get("dollar_impact", 0) or 0
+                if dollar:
+                    if abs(dollar) >= 1_000_000:
+                        dollar_str = f"${dollar / 1_000_000:.2f}M"
+                    elif abs(dollar) >= 1_000:
+                        dollar_str = f"${dollar / 1_000:.0f}K"
+                    else:
+                        dollar_str = f"${dollar:,.0f}"
+                    impact_html = (
+                        f'<p style="margin:0 0 4px 0;color:#484848;">'
+                        f"<strong>Estimated cost exposure:</strong> {dollar_str}</p>"
+                    )
+                else:
+                    impact_html = ""
+
+                render_card(
+                    f'<p style="margin:0 0 6px 0;">'
+                    f'<span class="{badge_cls}">{sev_label}</span> &nbsp; '
+                    f"<strong>{supplier}</strong></p>"
+                    f'<p style="margin:0 0 6px 0;font-weight:600;color:#222222;">'
+                    f"{headline}</p>"
+                    f"{impact_html}"
+                    f'<p style="margin:0;color:#767676;font-size:13px;">{evidence}</p>',
+                    variant="amber" if sev_label == "HIGH" else "default",
+                )
+
+        # ─── Section C: Negotiation Moves (recommended + top alternative) ──
+        st.markdown("##### Negotiation moves")
+
+        # Determine top alternative by weighted score (excluding recommended)
+        def _ws(data):
+            return compute_weighted_score(_get_scores_from_extracted(data), weights)
+
+        scored = [
+            (data.get("supplier_name", ""), _ws(data)) for data in extracted_list
+        ]
+        scored.sort(key=lambda t: -t[1])
+        rec_name = comparison.get("recommended_supplier", "")
+        alt_name = next(
+            (name for name, _ in scored if name != rec_name),
+            "",
+        )
+        targets = {n for n in [rec_name, alt_name] if n}
+
+        strategy = comparison.get("negotiation_strategy", {}) or {}
+        per_supplier = strategy.get("per_supplier", []) or []
+        any_rendered = False
+        for supplier_block in per_supplier:
+            supplier_name = supplier_block.get("supplier_name", "")
+            if supplier_name not in targets:
+                continue
+            any_rendered = True
+            label = (
+                "Recommended supplier"
+                if supplier_name == rec_name
+                else "Top alternative"
+            )
+            st.markdown(
+                f'<p style="font-size:13px;color:#767676;font-weight:600;'
+                f'letter-spacing:0.4px;margin:8px 0 6px 0;">'
+                f"{label} &mdash; {_esc(supplier_name)}</p>",
+                unsafe_allow_html=True,
+            )
+            for lp in supplier_block.get("leverage_points", [])[:3]:
+                ask = _esc(lp.get("concrete_ask", ""))
+                impact = _esc(lp.get("expected_impact", ""))
+                point = _esc(lp.get("point", ""))
+                render_card(
+                    f'<p style="margin:0 0 4px 0;font-weight:600;color:#222222;">'
+                    f"{point}</p>"
+                    f'<p style="margin:0 0 4px 0;color:#484848;">'
+                    f"<strong>Concrete ask:</strong> {ask}</p>"
+                    f'<p style="margin:0;color:#484848;">'
+                    f"<strong>Expected impact:</strong> {impact}</p>",
+                )
+
+        if not any_rendered:
+            st.caption(
+                "No per-supplier negotiation moves available for the "
+                "recommended supplier or top alternative."
             )
 
-        # Section C: Top Risks
-        st.markdown("##### Top Risks")
-        for idx, risk in enumerate(comparison.get("top_risks", []), 1):
+        # ─── Section D: Top Risks & Mitigations (cap 3) ─────────────────
+        st.markdown("##### Top risks and mitigations")
+        for idx, risk in enumerate(comparison.get("top_risks", [])[:3], 1):
             affected = ", ".join(_esc(s) for s in risk.get("affected_suppliers", []))
             risk_desc = _esc(risk.get("risk", ""))
             mitigation = _esc(risk.get("mitigation", ""))
             render_card(
                 f'<p style="margin:0 0 6px 0;"><strong>{idx}. {risk_desc}</strong></p>'
-                f'<p style="margin:0 0 6px 0;"><strong>Mitigation</strong>: {mitigation}</p>'
-                f'<p style="margin:0;"><em>Affects</em>: <span class="badge-amber">{affected}</span></p>',
+                f'<p style="margin:0 0 6px 0;"><strong>Mitigation:</strong> {mitigation}</p>'
+                f'<p style="margin:0;"><em>Affects:</em> '
+                f'<span class="badge-amber">{affected}</span></p>',
             )
 
-        # Section D: Negotiation Strategy
-        st.markdown("##### Negotiation Strategy")
-        strategy = comparison.get("negotiation_strategy", {})
-        for supplier_block in strategy.get("per_supplier", []):
-            supplier_name = supplier_block.get("supplier_name", "Unknown")
-            with st.expander(
-                f"Leverage Points: {supplier_name}", expanded=False
-            ):
-                for lp in supplier_block.get("leverage_points", []):
-                    point = _esc(lp.get("point", ""))
-                    ask = _esc(lp.get("concrete_ask", ""))
-                    impact = _esc(lp.get("expected_impact", ""))
-                    render_card(
-                        f'<p style="margin:0 0 4px 0;"><strong>{point}</strong></p>'
-                        f'<p style="margin:0 0 4px 0;"><strong>Concrete ask</strong>: {ask}</p>'
-                        f'<p style="margin:0;"><strong>Expected impact</strong>: {impact}</p>',
-                    )
-
-        tactics = strategy.get("general_tactics", [])
-        if tactics:
-            tactics_html = "".join(f"<li>{_esc(t)}</li>" for t in tactics)
-            render_card(
-                f'<p style="margin:0 0 8px 0;"><strong>General Negotiation Tactics</strong></p>'
-                f'<ul style="margin:0;padding-left:20px;">{tactics_html}</ul>',
-            )
-
-        # Section E: Clarification Questions
-        st.markdown("##### Clarification Questions")
-        cq = comparison.get("clarification_questions", [])
+        # ─── Section E: Clarification Questions (cap 5) ─────────────────
+        st.markdown("##### Clarification questions")
+        cq = comparison.get("clarification_questions", [])[:5]
         if cq:
-            import pandas as pd
-
             df = pd.DataFrame(
                 [
                     {
@@ -1231,25 +1309,28 @@ with tab_brief:
                 ]
             )
             st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.caption("No clarification questions generated.")
 
-        # Section F: Stress Test
-        st.markdown("##### Stress Test")
-        stress = comparison.get("stress_test", {})
-        wrong_items = stress.get("what_could_go_wrong", [])
+        # ─── Section F: Stress Test (what could go wrong cap 3) ─────────
+        st.markdown("##### Stress test")
+        stress = comparison.get("stress_test", {}) or {}
+        wrong_items = (stress.get("what_could_go_wrong", []) or [])[:3]
         wrong_html = "".join(f"<li>{_esc(item)}</li>" for item in wrong_items)
         cont = _esc(stress.get("contingency_recommendation", ""))
         cont_html = (
-            f'<p style="margin:12px 0 0 0;"><strong>Contingency Recommendation</strong>: {cont}</p>'
-            if cont else ""
+            f'<p style="margin:12px 0 0 0;"><strong>Contingency:</strong> {cont}</p>'
+            if cont
+            else ""
         )
         render_card(
-            f'<p style="margin:0 0 8px 0;"><strong>What Could Go Wrong</strong></p>'
+            f'<p style="margin:0 0 8px 0;"><strong>What could go wrong</strong></p>'
             f'<ul style="margin:0;padding-left:20px;">{wrong_html}</ul>'
-            f'{cont_html}',
+            f"{cont_html}",
             variant="amber",
         )
 
-        # Section G: Download Report
+        # ─── Section G: Export ──────────────────────────────────────────
         st.markdown("##### Export")
         pdf_bytes = st.session_state.get("pdf_report")
         if pdf_bytes:
