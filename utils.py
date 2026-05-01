@@ -44,13 +44,6 @@ GRAY = "#767676"
 LIGHT_GRAY = "#E0E0E0"
 WHITE = "#FFFFFF"
 
-SUPPLIER_COLORS = [CORAL, TEAL, DARK]
-SUPPLIER_FILL_COLORS = [
-    "rgba(255,90,95,0.15)",
-    "rgba(0,166,153,0.15)",
-    "rgba(72,72,72,0.15)",
-]
-
 DIMENSION_LABELS = {
     "tco_budget_fit": "TCO & Budget Fit",
     "pricing_vs_benchmark": "Pricing vs Benchmark",
@@ -96,68 +89,6 @@ def compute_weighted_score(scores: dict[str, float], weights: dict[str, float]) 
     for dim, weight in weights.items():
         total += scores.get(dim, 0.0) * weight / 10.0
     return round(total, 1)
-
-
-def create_radar_chart(
-    extracted_data_list: list[dict],
-    weights: dict[str, float],
-) -> go.Figure:
-    """Create a radar/spider chart comparing supplier scores."""
-    dimensions = list(DIMENSION_LABELS.keys())
-    labels = [DIMENSION_LABELS[d] for d in dimensions]
-
-    fig = go.Figure()
-
-    for i, data in enumerate(extracted_data_list):
-        scores = _get_scores_from_extracted(data)
-        values = [scores.get(d, 0) for d in dimensions]
-        # Close the polygon
-        values_closed = values + [values[0]]
-        labels_closed = labels + [labels[0]]
-
-        color = SUPPLIER_COLORS[i % len(SUPPLIER_COLORS)]
-        fill_color = SUPPLIER_FILL_COLORS[i % len(SUPPLIER_FILL_COLORS)]
-
-        fig.add_trace(go.Scatterpolar(
-            r=values_closed,
-            theta=labels_closed,
-            name=data.get("supplier_name", f"Supplier {i + 1}"),
-            line=dict(color=color, width=2),
-            fill="toself",
-            fillcolor=fill_color,
-        ))
-
-    fig.update_layout(
-        polar=dict(
-            bgcolor=WHITE,
-            radialaxis=dict(
-                visible=True,
-                range=[0, 10],
-                tickvals=[2, 4, 6, 8, 10],
-                gridcolor="#EBEBEB",
-                linecolor="#EBEBEB",
-            ),
-            angularaxis=dict(
-                gridcolor="#EBEBEB",
-                linecolor="#EBEBEB",
-            ),
-        ),
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.15,
-            xanchor="center",
-            x=0.5,
-            font=dict(family="Helvetica Neue, Arial, sans-serif", size=12, color=DARK),
-        ),
-        paper_bgcolor=WHITE,
-        plot_bgcolor=WHITE,
-        font=dict(family="Helvetica Neue, Arial, sans-serif", color=DARK),
-        margin=dict(l=60, r=60, t=30, b=60),
-        height=420,
-    )
-    return fig
 
 
 def create_score_bar_chart(

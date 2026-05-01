@@ -24,7 +24,6 @@ from utils import (
     DIMENSION_LABELS,
     _get_scores_from_extracted,
     compute_weighted_score,
-    create_radar_chart,
     create_score_bar_chart,
     generate_pdf_report,
     parse_pdf,
@@ -787,20 +786,203 @@ with tab_input:
 
 
 # ── TAB 2: Comparison Matrix ────────────────────────────────────────────────
+# Helpers used only by Tab 2's deal comparison table -----------------------
+
+_DEAL_TABLE_BG = {"green": "#E6F7F5", "yellow": "#FFF5E0", "red": "#FFF0F0"}
+_DEAL_TABLE_FG = {"green": "#00A699", "yellow": "#B8860B", "red": "#D93025"}
+
+
+def _deal_cell_html(text: str, color):
+    """One <td> rendered with a coloured background or plain styling."""
+    if color in _DEAL_TABLE_BG:
+        bg = _DEAL_TABLE_BG[color]
+        fg = _DEAL_TABLE_FG[color]
+        style = (
+            f"background:{bg};color:{fg};padding:9px 12px;"
+            f"border-bottom:1px solid #EBEBEB;font-weight:500;text-align:center;"
+        )
+    else:
+        style = (
+            "padding:9px 12px;border-bottom:1px solid #EBEBEB;"
+            "color:#484848;text-align:center;"
+        )
+    return f'<td style="{style}">{text}</td>'
+
+
+def _build_deal_comparison_table(extracted_list, findings_list, sd_lookup):
+    """Build the deterministic-findings-driven comparison table as HTML."""
+    median_price = 250.0
+    p90_price = 310.0
+    median_uptime = 99.9
+
+    cols_html = "".join(
+        f'<th style="padding:10px 12px;text-align:center;'
+        f"font-weight:600;color:#484848;border-bottom:2px solid #EBEBEB;"
+        f'background:#F7F7F7;">{_esc(d.get("supplier_name", f"Supplier {i+1}"))}</th>'
+        for i, d in enumerate(extracted_list)
+    )
+    header = (
+        '<tr><th style="padding:10px 12px;text-align:left;font-weight:600;'
+        "color:#484848;border-bottom:2px solid #EBEBEB;background:#F7F7F7;"
+        'min-width:220px;">Metric</th>'
+        f"{cols_html}</tr>"
+    )
+
+    rows = []
+
+    def _row(label, cells):
+        cell_html = "".join(_deal_cell_html(t, c) for t, c in cells)
+        return (
+            '<tr><td style="padding:9px 12px;border-bottom:1px solid #EBEBEB;'
+            f'color:#484848;font-weight:500;">{label}</td>{cell_html}</tr>'
+        )
+
+    # Row 1: 3-Year TCO (informational)
+    tco_cells = []
+    for fnd in findings_list:
+        tco_total = (fnd.get("tco") or {}).get("total_3yr_tco", 0)
+        tco_cells.append((f"${tco_total / 1_000_000:.2f}M", None))
+    rows.append(_row("3-year TCO", tco_cells))
+
+    # Row 2: % of 3-Year Budget Envelope
+    budget_cells = []
+    for fnd in findings_list:
+        budget = fnd.get("budget") or {}
+        req = budget.get("total_3yr_required", 0)
+        avail = budget.get("total_3yr_available", 0)
+        if avail > 0:
+            pct = req / avail * 100
+            if pct <= 95:
+                color = "green"
+            elif pct <= 105:
+                color = "yellow"
+            else:
+                color = "red"
+            budget_cells.append((f"{pct:.0f}% of envelope", color))
+        else:
+            budget_cells.append(("—", None))
+    rows.append(_row("% of 3-year budget envelope", budget_cells))
+
+    # Row 3: Net Price (1K-5K) vs Median
+    price_cells = []
+    for fnd in findings_list:
+        name = fnd.get("supplier_name", "")
+        sd = sd_lookup.get(name) or {}
+        tier_prices = sd.get("tier_net_price") or []
+        if len(tier_prices) >= 2:
+            price = tier_prices[1]
+            delta = price - median_price
+            sign = "+" if delta >= 0 else "-"
+            if price <= median_price:
+                color = "green"
+            elif price <= p90_price:
+                color = "yellow"
+            else:
+                color = "red"
+            price_cells.append(
+                (f"${price:.0f} ({sign}${abs(delta):.0f} vs median)", color)
+            )
+        else:
+            price_cells.append(("—", None))
+    rows.append(_row("Net price (1K-5K) vs median", price_cells))
+
+    # Row 4: Uptime SLA vs Median
+    uptime_cells = []
+    for fnd in findings_list:
+        name = fnd.get("supplier_name", "")
+        sd = sd_lookup.get(name) or {}
+        uptime = sd.get("uptime_sla")
+        if uptime is None:
+            for b in fnd.get("benchmarks", []):
+                if b.get("metric") == "Uptime SLA":
+                    uptime = b.get("supplier_value")
+                    break
+        if uptime is None:
+            uptime_cells.append(("—", None))
+        else:
+            color = "green" if uptime >= median_uptime else "red"
+            uptime_cells.append((f"{uptime:.2f}%", color))
+    rows.append(_row("Uptime SLA vs median", uptime_cells))
+
+    # Row 5: Termination Cost @ End of Y1 (informational)
+    exit_cells = []
+    for fnd in findings_list:
+        cost = fnd.get("exit_cost", 0) or 0
+        if cost == 0:
+            label = "$0"
+        elif cost < 1_000_000:
+            label = f"${cost / 1000:.0f}K"
+        else:
+            label = f"${cost / 1_000_000:.2f}M"
+        exit_cells.append((label, None))
+    rows.append(_row("Termination cost at end of Y1", exit_cells))
+
+    # Row 6: Compliance & Residency
+    comp_cells = []
+    for fnd in findings_list:
+        name = fnd.get("supplier_name", "")
+        sd = sd_lookup.get(name) or {}
+        certs = sd.get("data_privacy_certs") or []
+        residency = sd.get("data_residency") or []
+        has_type_ii = any("type ii" in str(c).lower() for c in certs)
+        n_regions = len(residency)
+        is_multi = n_regions >= 2
+        if has_type_ii and is_multi:
+            color = "green"
+        elif (not has_type_ii) and (not is_multi):
+            color = "red"
+        else:
+            color = "yellow"
+        cert_label = "SOC 2 Type II" if has_type_ii else "no Type II"
+        region_label = f"{n_regions} region" + ("s" if n_regions != 1 else "")
+        comp_cells.append((f"{cert_label} + {region_label}", color))
+    rows.append(_row("Compliance and residency", comp_cells))
+
+    # Row 7: Integration Coverage
+    integ_cells = []
+    total = len(AIRBNB_CONTEXT.integrations)
+    for fnd in findings_list:
+        integ = fnd.get("integration") or []
+        covered = len(integ)
+        if total == 0:
+            integ_cells.append(("—", None))
+        else:
+            if covered >= 4:
+                color = "green"
+            elif covered >= 2:
+                color = "yellow"
+            else:
+                color = "red"
+            integ_cells.append((f"{covered} of {total}", color))
+    rows.append(_row("Integration coverage", integ_cells))
+
+    rows_html = "".join(rows)
+    return (
+        '<table style="width:100%;border-collapse:collapse;background:#FFFFFF;'
+        "border:1px solid #EBEBEB;border-radius:12px;overflow:hidden;"
+        'font-family:Helvetica Neue, Arial, sans-serif;font-size:13px;">'
+        f"<thead>{header}</thead><tbody>{rows_html}</tbody></table>"
+    )
+
+
 with tab_compare:
     if not st.session_state.get("analysis_done"):
         st.markdown(
             '<div class="placeholder-text">'
-            '<p style="font-size:40px;margin-bottom:8px;">\U0001f4ca</p>'
-            "<p>Run an analysis to see the comparison matrix</p></div>",
+            "<p>Run an analysis to see the comparison matrix.</p></div>",
             unsafe_allow_html=True,
         )
     else:
         extracted_list = st.session_state["extracted_data"]
         comparison = st.session_state["comparison_data"]
+        findings_list = st.session_state.get("findings_per_supplier", []) or []
+        sd_lookup = {
+            p["supplier_name"]: p.get("structured_data")
+            for p in SAMPLE_PROPOSALS.get("proposals", [])
+        }
 
-        # Section A: Overall Scores
-        st.markdown("##### Overall Weighted Scores")
+        # 1. Headline Score Cards
+        st.markdown("##### Overall weighted scores")
         all_scores = []
         for data in extracted_list:
             s = _get_scores_from_extracted(data)
@@ -822,54 +1004,32 @@ with tab_compare:
                     variant="highlight" if is_top else "default",
                 )
 
-        # Bar chart
+        # 2. Single Bar Chart
         bar_fig = create_score_bar_chart(extracted_list, weights)
-        st.plotly_chart(bar_fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(
+            bar_fig, use_container_width=True, config={"displayModeBar": False}
+        )
 
-        # Section B: Radar Chart
-        st.markdown("##### Dimension Scores")
-        radar_fig = create_radar_chart(extracted_list, weights)
-        st.plotly_chart(radar_fig, use_container_width=True, config={"displayModeBar": False})
+        # 3. Deal Comparison Table
+        st.markdown("##### Deal comparison")
+        if findings_list and any(f.get("tco") for f in findings_list):
+            table_html = _build_deal_comparison_table(
+                extracted_list, findings_list, sd_lookup
+            )
+            st.markdown(table_html, unsafe_allow_html=True)
+            st.caption(
+                "Color rules: green = at or better than benchmark; "
+                "yellow = within tolerance; red = outside acceptable range. "
+                "Numbers are deterministic and sourced from the findings engine."
+            )
+        else:
+            st.caption(
+                "Deterministic findings unavailable for this run. "
+                "Load the sample scenario to see the deal comparison table."
+            )
 
-        # Section C: Extracted Terms Comparison
-        st.markdown("##### Extracted Terms Comparison")
-
-        term_categories = {
-            "Pricing": "pricing",
-            "Scope & Deliverables": "scope_and_deliverables",
-            "Service Levels": "service_levels",
-            "Risk Factors": "risk_factors",
-            "Contract Flexibility": "contract_flexibility",
-            "ESG & Diversity": "esg_and_diversity",
-        }
-
-        for cat_label, cat_key in term_categories.items():
-            with st.expander(cat_label, expanded=False):
-                cols = st.columns(len(extracted_list))
-                for idx, data in enumerate(extracted_list):
-                    with cols[idx]:
-                        supplier = data.get("supplier_name", f"Supplier {idx + 1}")
-                        st.markdown(f"**{supplier}**")
-                        terms = _safe(data, "extracted_terms", cat_key, default={})
-                        if isinstance(terms, dict):
-                            for field, value in terms.items():
-                                label = field.replace("_", " ").title()
-                                if isinstance(value, list):
-                                    items = (
-                                        ", ".join(_esc(v) for v in value)
-                                        if value
-                                        else "None listed"
-                                    )
-                                    st.markdown(f"**{label}**: {items}")
-                                elif value is None:
-                                    st.markdown(f"**{label}**: *Not specified*")
-                                else:
-                                    st.markdown(f"**{label}**: {_esc(value)}")
-                        st.markdown("---")
-
-        # Section D: Risk Flags
-        st.markdown("##### Risk Flags")
-
+        # 4. Risk Flags (top 5 by severity)
+        st.markdown("##### Top risk flags")
         all_flags = []
         for data in extracted_list:
             supplier = data.get("supplier_name", "Unknown")
@@ -883,38 +1043,35 @@ with tab_compare:
             )
         )
 
-        severity_icons = {
-            "high": "\U0001f534",
-            "medium": "\U0001f7e1",
-            "low": "\U0001f7e2",
-        }
         severity_badges = {
             "high": "badge-red",
             "medium": "badge-amber",
             "low": "badge-green",
         }
 
-        for flag in all_flags:
+        for flag in all_flags[:5]:
             sev = str(flag.get("severity", "low")).lower()
-            icon = severity_icons.get(sev, "\u26aa")
             badge_cls = severity_badges.get(sev, "badge-green")
             desc = _esc(flag.get("description", ""))
             supplier = _esc(flag.get("supplier", ""))
             render_card(
-                f'{icon} <span class="{badge_cls}">{sev.upper()}</span> &nbsp; '
+                f'<span class="{badge_cls}">{sev.upper()}</span> &nbsp; '
                 f"<strong>{supplier}</strong> &mdash; {desc}",
             )
 
         if not all_flags:
             st.caption("No risk flags identified.")
+        elif len(all_flags) > 5:
+            st.caption(
+                f"Showing top 5 of {len(all_flags)} flags, sorted by severity."
+            )
 
-        # Section E: Score Breakdown
-        st.markdown("##### Score Breakdown by Dimension")
-        for dim_key, dim_label in DIMENSION_LABELS.items():
-            with st.expander(dim_label, expanded=False):
+        # 6. Optional footer expander: per-dimension score detail
+        with st.expander("View per-dimension score detail", expanded=False):
+            for dim_key, dim_label in DIMENSION_LABELS.items():
+                st.markdown(f"**{dim_label}**")
                 cols = st.columns(len(extracted_list))
 
-                # Find best score for this dimension
                 best_score = -1.0
                 best_idx = -1
                 for idx, data in enumerate(extracted_list):
@@ -928,20 +1085,19 @@ with tab_compare:
                         s = _get_scores_from_extracted(data)
                         score_val = s.get(dim_key, 0)
                         supplier = data.get("supplier_name", f"Supplier {idx + 1}")
-                        rationale = _esc(_safe(
-                            data, "scores", dim_key, "rationale", default=""
-                        ))
-
+                        rationale = _esc(
+                            _safe(data, "scores", dim_key, "rationale", default="")
+                        )
                         if idx == best_idx:
                             st.markdown(
-                                f"**{supplier}**: "
+                                f"{supplier}: "
                                 f'<span class="badge-coral">{score_val}/10</span>',
                                 unsafe_allow_html=True,
                             )
                         else:
-                            st.markdown(f"**{supplier}**: {score_val}/10")
-
+                            st.markdown(f"{supplier}: {score_val}/10")
                         st.caption(rationale)
+                st.markdown("---")
 
 
 # ── TAB 3: Negotiation Brief ────────────────────────────────────────────────
