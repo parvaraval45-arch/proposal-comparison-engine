@@ -1,236 +1,378 @@
-"""Sample supplier proposals for the Proposal Comparison Engine demo."""
+"""Sample supplier proposals for the Proposal Comparison Engine demo.
+
+Scenario: Data & Analytics Platform Renewal -- 3-Year Software Agreement.
+Three vendors with contrasting commercial profiles (AlphaBI, BeaconIQ,
+DataNova) so the deterministic engine can surface the specific gotchas
+the AI should catch.
+
+Each proposal carries both:
+
+* ``proposal_text`` -- the narrative the LLM extracts from
+* ``structured_data`` -- the canonical fields the deterministic engine reads
+
+Both must agree. If you edit one, edit the other.
+"""
 
 SAMPLE_PROPOSALS = {
-    "scenario_name": "Corporate Events Management Services — 2-Year Engagement",
+    "scenario_name": "Data & Analytics Platform Renewal -- 3-Year Software Agreement",
     "scenario_description": (
-        "Airbnb is sourcing a partner for a 2-year engagement to plan and execute "
-        "corporate events. Annual spend is approximately $2M. Scope includes 4 major "
-        "company events per year (all-hands, leadership offsite, summer celebration, "
-        "holiday event) plus 8–12 smaller team events. The selected partner must handle "
-        "venue sourcing, catering, A/V production, travel logistics, and post-event "
-        "reporting. Proposals were solicited from two vendors with contrasting profiles."
+        "Airbnb is selecting a Data & Analytics platform serving the Product, "
+        "Growth, and International orgs. Annual seat forecast ramps from 2,500 "
+        "in FY-24 to 5,000 in FY-27. The agreement is a 3-year term with a "
+        "forecasted 3-year TCV in the $3M-$4M range. Three vendors with "
+        "contrasting commercial profiles have been evaluated: AlphaBI (mature "
+        "enterprise incumbent), BeaconIQ (challenger with attractive headline "
+        "pricing but compliance gaps), and DataNova (modern, premium-priced, "
+        "highest flexibility)."
     ),
     "proposals": [
+        # ──────────────────────────────────────────────────────────────────
+        # 1. ALPHABI
+        # ──────────────────────────────────────────────────────────────────
         {
-            "supplier_name": "Eventide Solutions",
+            "supplier_name": "AlphaBI",
             "proposal_text": (
-                "PROPOSAL FOR CORPORATE EVENTS MANAGEMENT SERVICES\n"
+                "PROPOSAL FOR DATA & ANALYTICS PLATFORM SUBSCRIPTION\n"
                 "Submitted to: Airbnb, Inc.\n"
-                "Submitted by: Eventide Solutions\n"
-                "Date: January 15, 2026\n"
-                "RFP Reference: AIR-PROC-2026-0042\n\n"
+                "Submitted by: AlphaBI Corporation\n"
+                "Term: 3-year software agreement\n\n"
 
                 "1. COMPANY OVERVIEW\n\n"
-                "Eventide Solutions is a premier full-service corporate events management "
-                "agency founded in 2011. With over 200 employees across offices in San Francisco, "
-                "New York, Chicago, Austin, and Miami, we are one of the largest independently "
-                "owned event management firms in the United States. Over the past 15 years, "
-                "Eventide has planned and executed more than 3,500 corporate events for Fortune "
-                "500 clients, including technology, financial services, and consumer goods companies.\n\n"
-                "We are ISO 27001 certified, ensuring that all client data and event logistics "
-                "are handled with enterprise-grade security protocols. Eventide is also a certified "
-                "Women's Business Enterprise (WBE) through the Women's Business Enterprise National "
-                "Council (WBENC). We carry $5M in general liability insurance and maintain "
-                "comprehensive errors and omissions coverage.\n\n"
-                "Our approach is built on operational excellence, leveraging proven methodologies "
-                "and synergistic partnerships to deliver transformative event experiences that "
-                "drive stakeholder alignment and organizational momentum.\n\n"
+                "AlphaBI is a market-leading enterprise data and analytics platform "
+                "trusted by more than 600 enterprise customers across financial "
+                "services, retail, healthcare, and consumer technology. Our platform "
+                "covers ingestion, transformation, semantic modeling, governed BI, "
+                "and embedded analytics in a single subscription. We have a 12-year "
+                "operating history, 1,400 employees globally, and a delivery footprint "
+                "in North America, EMEA, and APAC. AlphaBI is recognized as a Leader "
+                "in the most recent industry analyst evaluations of analytics and "
+                "business-intelligence platforms, with consistent placement in the "
+                "top quadrant on both ability-to-execute and completeness-of-vision "
+                "axes for the past five evaluation cycles.\n\n"
+                "Our customer base spans organizations from 500-seat departmental "
+                "deployments to 25,000-seat enterprise rollouts. We bring deep "
+                "experience integrating with the modern cloud data stack, including "
+                "Snowflake, Databricks, BigQuery, and Redshift, and we maintain "
+                "certified connectors and shared reference architectures for each.\n\n"
 
-                "2. UNDERSTANDING OF REQUIREMENTS\n\n"
-                "Airbnb seeks a strategic events partner to plan and execute a portfolio of "
-                "corporate events over a 2-year engagement period. We understand the scope to include:\n"
-                "- 4 major company events per year: All-Hands Meeting, Leadership Offsite, "
-                "Summer Celebration, and Holiday Event\n"
-                "- 8–12 smaller team-level events per year\n"
-                "- Full-service management: venue sourcing, catering, A/V production, travel "
-                "logistics, and post-event reporting\n"
-                "- Alignment with Airbnb's brand values of belonging, creativity, and community\n\n"
-                "We recognize that each event type requires a differentiated approach while "
-                "maintaining a consistent brand experience across the portfolio.\n\n"
+                "2. COMMERCIAL TERMS\n\n"
+                "AlphaBI proposes a 3-year subscription priced on a per-named-user, "
+                "per-year basis with three volume tiers:\n\n"
+                "  Tier 1 (0-1K seats):  list $320/user/year, with a 10% volume "
+                "discount, for a net price of $288/user/year.\n"
+                "  Tier 2 (1K-5K seats): list $290/user/year, with a 15% volume "
+                "discount, for a net price of $247/user/year.\n"
+                "  Tier 3 (5K+ seats):   list $260/user/year, with a 22% volume "
+                "discount, for a net price of $203/user/year.\n\n"
+                "Tier banding is applied to the average seat count across the "
+                "fiscal year, trued up at the end of each year. Pricing is locked "
+                "for the full 3-year term subject to the standard CPI escalator "
+                "capped at 3% per year. Volume discounts are non-stackable with "
+                "additional rebates and are recognized only after the average seat "
+                "count for the relevant fiscal year crosses the tier threshold.\n\n"
+                "Implementation fee: $150,000 one-time, billed at contract signing. "
+                "Includes onboarding, identity integration, semantic-layer migration, "
+                "data-governance configuration, baseline dashboard migration, and "
+                "8 weeks of dedicated solution-architect time. Additional weeks "
+                "of solution-architect engagement are available at $2,500 per day "
+                "T&M, with at least 10-business-day advance notice.\n\n"
+                "Annual support: 18% of license. Includes 24x7 P1 coverage, a named "
+                "Technical Account Manager, quarterly business reviews, access to "
+                "the AlphaBI customer success portal, and unlimited access to our "
+                "self-paced training curriculum. Support is delivered from regional "
+                "centers in the US, Ireland, and Singapore to ensure follow-the-sun "
+                "coverage for incidents.\n\n"
 
-                "3. PROPOSED APPROACH\n\n"
-                "Eventide will deploy our Enterprise Events Framework (EEF), a proprietary "
-                "methodology that integrates strategic planning, creative design, logistics "
-                "management, and post-event analytics into a unified delivery model.\n\n"
-                "Venue Sourcing: We maintain an exclusive network of 2,000+ vetted venues "
-                "nationwide. Our venue procurement team will present curated shortlists within "
-                "10 business days of brief receipt, including virtual site tours and detailed "
-                "comparison matrices.\n\n"
-                "Catering & Hospitality: Our culinary partnerships span 150+ preferred caterers. "
-                "All menus will accommodate dietary restrictions, cultural preferences, and "
-                "sustainability requirements.\n\n"
-                "A/V & Production: Full in-house production capability including stage design, "
-                "lighting, sound, live streaming, and hybrid event technology.\n\n"
-                "Travel Logistics: Integrated travel management for attendee transportation, "
-                "accommodation blocks, and ground logistics.\n\n"
-                "Post-Event Reporting: Comprehensive event reports delivered within 5 business "
-                "days, including attendee satisfaction surveys, budget reconciliation, and "
-                "strategic recommendations for future events.\n\n"
-                "We will leverage our proprietary innovation engine to identify cutting-edge "
-                "solutions that drive paradigm shifts in the corporate events space, ensuring "
-                "Airbnb remains at the forefront of experiential excellence.\n\n"
+                "3. SERVICE LEVELS\n\n"
+                "Uptime SLA: 99.9% measured monthly across the production tenant, "
+                "excluding scheduled maintenance windows announced at least 7 "
+                "business days in advance. SLA credit: 15% of monthly recurring "
+                "revenue (MRR) for any month in which uptime falls below the "
+                "99.9% commitment, capped at 50% of MRR per quarter. Credits are "
+                "issued automatically against the next invoice and do not require "
+                "Airbnb to file a claim.\n\n"
 
-                "4. TEAM & STAFFING\n\n"
-                "Eventide will assign a dedicated team to the Airbnb account:\n"
-                "- 2 Senior Account Managers (each with 10+ years of experience)\n"
-                "- 1 Creative Director\n"
-                "- 1 Production Manager\n"
-                "- 2 Event Coordinators\n"
-                "- Access to our full bench of 200+ specialists as needed\n\n"
-                "The account team will be based in our San Francisco office for proximity to "
-                "Airbnb headquarters. Quarterly business reviews (QBRs) will be conducted with "
-                "Airbnb's procurement and events leadership teams.\n\n"
+                "4. SECURITY, COMPLIANCE & DATA PRIVACY\n\n"
+                "AlphaBI maintains the following certifications: SOC 2 Type II "
+                "(audited annually with no exceptions in the past three audit "
+                "cycles) and ISO 27001. Both reports are made available under NDA "
+                "prior to contract signing. We support customer-managed encryption "
+                "keys (BYOK) backed by AWS KMS, GCP KMS, or Azure Key Vault, full "
+                "audit logging exportable to customer SIEMs, fine-grained "
+                "role-based access, and SAML/SCIM provisioning via Okta, Azure AD, "
+                "and Google Workspace. Penetration tests are conducted twice a "
+                "year by an external CREST-certified vendor, and executive "
+                "summaries are shared on request.\n\n"
+                "Data residency options: US, EU, and APAC. Customers select the "
+                "region of record at provisioning time, and AlphaBI guarantees "
+                "that production tenant data, backups, and replicas remain inside "
+                "the selected region. Cross-region failover is available within "
+                "the same residency zone (for example, EU-West to EU-Central) "
+                "without changing residency commitments.\n\n"
 
-                "5. PRICING\n\n"
-                "Eventide proposes a fixed annual fee of $2,400,000 for the full scope of services "
-                "described above. This fee structure provides budget certainty and eliminates "
-                "per-event cost variability.\n\n"
-                "Included in the annual fee:\n"
-                "- All staff time for planning, execution, and post-event reporting\n"
-                "- Project management tools and technology platform access\n"
-                "- Quarterly business reviews and monthly status reports\n"
-                "- Up to 4 major events and 10 smaller events per year\n\n"
-                "Not included (passed through at cost plus 12% management fee):\n"
-                "- Venue rental fees\n"
-                "- Catering and food & beverage costs\n"
-                "- A/V equipment rental (beyond our in-house inventory)\n"
-                "- Travel and accommodation for attendees\n"
-                "- Printed materials and signage\n\n"
-                "Change orders for work outside the defined scope will be billed at $150/hour "
-                "and require a formal change order request with 5 business day turnaround for "
-                "approval. Annual price escalation is tied to the Consumer Price Index (CPI), "
-                "capped at 3% per year.\n\n"
-                "Payment terms: Net 45 from invoice date.\n\n"
+                "5. TERMINATION CLAUSE\n\n"
+                "Either party may terminate this agreement with 90 days written "
+                "notice. If Airbnb terminates for convenience prior to the end "
+                "of the 3-year term, an early-termination penalty of 25% of "
+                "remaining TCV is payable. Remaining TCV is defined as the sum "
+                "of unbilled license and support fees for all years remaining in "
+                "the contract term at the effective termination date. Termination "
+                "for material breach is permitted with a 30-day cure period and "
+                "no penalty.\n\n"
 
-                "6. TERMS & CONDITIONS\n\n"
-                "Contract Duration: 2 years with option to renew for successive 1-year terms.\n"
-                "Termination: Either party may terminate with 90 days written notice, subject to "
-                "a 30-day cure period for any curable breach.\n"
-                "Service Level Agreements:\n"
-                "- Response time: 48 hours for standard requests, 4 hours for urgent matters\n"
-                "- On-time delivery: 99% target for all event milestones\n"
-                "- Financial penalties: 5% service credit per SLA incident, capped at 15% of "
-                "monthly fees\n"
-                "- Quarterly performance scorecards aligned to agreed KPIs\n"
-                "Intellectual Property: All event concepts and materials created for Airbnb are "
-                "work-for-hire and become Airbnb's property.\n"
-                "Insurance: $5M general liability, $2M professional liability, $1M cyber liability.\n"
-                "Data Protection: Full compliance with CCPA and SOC 2 Type II controls.\n"
-                "Carbon Offset Program: Eventide offsets the carbon footprint of all events "
-                "through verified carbon credit purchases, included in the annual fee.\n\n"
-
-                "7. REFERENCES\n\n"
-                "- Salesforce: Managed their annual Dreamforce partner events program (2019–present). "
-                "Contact: Sarah Chen, VP of Global Events.\n"
-                "- Cisco: Planned and executed 25+ leadership offsites per year across North America "
-                "(2020–2024). Contact: Michael Torres, Director of Corporate Services.\n"
-                "- Deloitte: Delivered their West Coast office holiday event series for 3 consecutive "
-                "years. Contact: Priya Gupta, Senior Manager, Workplace Experience.\n"
+                "6. REFERENCES\n\n"
+                "Salesforce (4,800 seats, 5-year customer), Cisco (3,200 seats), "
+                "and Workday (2,500 seats). Reference contacts available on "
+                "request following mutual NDA execution."
             ),
+            "structured_data": {
+                "term_years": 3,
+                "tier_seats": ["0-1K", "1K-5K", "5K+"],
+                "tier_list_price": [320, 290, 260],
+                "tier_volume_discount_pct": [10, 15, 22],
+                "tier_net_price": [288, 247, 203],
+                "implementation_fee": 150_000,
+                "annual_support_pct": 18,
+                "uptime_sla": 99.9,
+                "sla_credit_pct": 15,
+                "data_privacy_certs": ["SOC 2 Type II", "ISO 27001"],
+                "certs_caveat": None,
+                "data_residency": ["US", "EU", "APAC"],
+                "termination_notice_days": 90,
+                "termination_penalty_formula": "25% of remaining TCV",
+            },
         },
+
+        # ──────────────────────────────────────────────────────────────────
+        # 2. BEACONIQ
+        # ──────────────────────────────────────────────────────────────────
         {
-            "supplier_name": "Mosaic Collective",
+            "supplier_name": "BeaconIQ",
             "proposal_text": (
-                "MOSAIC COLLECTIVE\n"
-                "A Proposal for Airbnb's Corporate Events Partnership\n\n"
+                "BEACONIQ PROPOSAL\n"
+                "For: Airbnb, Inc.\n"
+                "Subject: Data & Analytics Platform -- 3-Year Subscription\n\n"
+
+                "1. ABOUT BEACONIQ\n\n"
+                "BeaconIQ is a fast-growing data and analytics challenger founded "
+                "in 2018, headquartered in Austin, TX, with engineering hubs in "
+                "Toronto and Lisbon. We work with 180+ mid-market and emerging-"
+                "enterprise customers and have raised Series C funding from a "
+                "syndicate of leading enterprise-software investors. We pride "
+                "ourselves on aggressive commercial flexibility, fast time-to-"
+                "value implementations measured in weeks rather than quarters, "
+                "and a clean, opinionated product surface that minimizes the "
+                "configuration burden on customer engineering teams. Our average "
+                "deployment goes from contract signature to first production "
+                "dashboard in under 45 days.\n\n"
+                "BeaconIQ's product is built on an open-source columnar engine, "
+                "with proprietary semantic, governance, and orchestration layers "
+                "above. We are well suited for analytics organizations that value "
+                "iteration velocity and modern self-service workflows; we are "
+                "less suited for federal or other heavily regulated workloads "
+                "given our current compliance posture, which we transparently "
+                "disclose below.\n\n"
+
+                "2. COMMERCIAL TERMS\n\n"
+                "BeaconIQ is offering a 3-year subscription with the following "
+                "per-named-user, per-year pricing:\n\n"
+                "  Tier 1 (0-1K seats):  list $350/user/year, 12% volume "
+                "discount, net price $308/user/year.\n"
+                "  Tier 2 (1K-5K seats): list $300/user/year, 18% volume "
+                "discount, net price $246/user/year.\n"
+                "  Tier 3 (5K+ seats):   list $275/user/year, 25% volume "
+                "discount, net price $206/user/year.\n\n"
+                "Tier banding is determined by average seats consumed in the "
+                "trailing 12 months. List prices are reviewed annually; net "
+                "prices are guaranteed only at signing for Year 1, and BeaconIQ "
+                "reserves the right to revisit Year 2 and Year 3 net prices "
+                "ahead of each renewal anniversary if there is a material change "
+                "in market conditions or platform cost structure. Any uplift "
+                "above 5% requires Airbnb consent, with a true-up reconciled at "
+                "year end.\n\n"
+                "Implementation fee: $95,000 one-time. Includes a 6-week "
+                "deployment covering identity integration, two source-system "
+                "connectors, and initial dashboard migration. Additional "
+                "connectors are billed at T&M rates of $1,800 per day per "
+                "implementation engineer. Custom semantic-model migration from "
+                "legacy tools is in scope only for two source models; further "
+                "migrations are quoted separately.\n\n"
+                "Annual support: 22% of license. Includes 24x5 P1 coverage, "
+                "shared support engineer, and access to the BeaconIQ customer "
+                "community. 24x7 coverage and a named Technical Account Manager "
+                "are available for an additional 6% of license uplift, billed "
+                "annually.\n\n"
+
+                "3. SERVICE LEVELS\n\n"
+                "Uptime SLA: 99.5% measured monthly. SLA credit: 12% of monthly "
+                "recurring revenue (MRR) per month of breach, capped at 30% of "
+                "annual fees. Maintenance windows announced at least 5 business "
+                "days in advance are excluded from the uptime calculation.\n\n"
+
+                "4. SECURITY, COMPLIANCE & DATA PRIVACY\n\n"
+                "BeaconIQ holds SOC 2 Type I attestation as of the most recent "
+                "audit cycle. We are committed to completing a SOC 2 Type II "
+                "audit; the Type II audit is scheduled for completion in 12 "
+                "months. ISO 27001 is on the 24-month roadmap. We are not yet "
+                "a CSA STAR registrant. We support encryption at rest and in "
+                "transit, role-based access controls, and SAML SSO; customer-"
+                "managed keys (BYOK) are on the roadmap but not generally "
+                "available today.\n\n"
+                "Data residency: US only. All BeaconIQ tenants are hosted in "
+                "our us-east-1 region with cross-AZ replication. EU data "
+                "residency is on the product roadmap but is not generally "
+                "available at contract signing; an EU-Frankfurt region is "
+                "targeted for general availability within 18 months. APAC "
+                "residency is not on the current roadmap.\n\n"
+
+                "5. TERMINATION CLAUSE\n\n"
+                "Either party may terminate this agreement with 60 days "
+                "written notice. If Airbnb terminates for convenience prior "
+                "to the end of the 3-year term, an early-termination fee of "
+                "15% of remaining TCV is payable. Remaining TCV is defined as "
+                "the unbilled license and support fees for all years remaining "
+                "in the term at the effective termination date.\n\n"
+
+                "6. REFERENCES\n\n"
+                "DoorDash (1,200 seats), Plaid (900 seats), and a Fortune 500 "
+                "retailer who prefers to remain anonymous. Reference contacts "
+                "available on request."
+            ),
+            "structured_data": {
+                "term_years": 3,
+                "tier_seats": ["0-1K", "1K-5K", "5K+"],
+                "tier_list_price": [350, 300, 275],
+                "tier_volume_discount_pct": [12, 18, 25],
+                "tier_net_price": [308, 246, 206],
+                "implementation_fee": 95_000,
+                "annual_support_pct": 22,
+                "uptime_sla": 99.5,
+                "sla_credit_pct": 12,
+                "data_privacy_certs": ["SOC 2 Type I"],
+                "certs_caveat": "Type II audit scheduled for completion in 12 months",
+                "data_residency": ["US"],
+                "termination_notice_days": 60,
+                "termination_penalty_formula": "15% of remaining TCV",
+            },
+        },
+
+        # ──────────────────────────────────────────────────────────────────
+        # 3. DATANOVA
+        # ──────────────────────────────────────────────────────────────────
+        {
+            "supplier_name": "DataNova",
+            "proposal_text": (
+                "DATANOVA -- COMMERCIAL PROPOSAL\n"
+                "Prepared for: Airbnb, Inc.\n"
+                "Engagement: Data & Analytics Platform, 3-Year Software Agreement\n\n"
 
                 "1. COMPANY OVERVIEW\n\n"
-                "Mosaic Collective is a creative-first events agency founded in 2019 with a mission "
-                "to transform corporate gatherings into cultural moments. We are a team of 45 "
-                "designers, strategists, producers, and technologists headquartered in Brooklyn, NY "
-                "with a satellite studio in Los Angeles.\n\n"
-                "In seven years, we have built a reputation as the go-to agency for technology "
-                "companies that refuse to settle for conventional events. Our work has been featured "
-                "in Fast Company, Wired, and Event Marketer. We are proud to hold both MBE "
-                "(Minority Business Enterprise) and LGBTBE (LGBT Business Enterprise) certifications.\n\n"
-                "We carry $1M in general liability insurance, which we have found sufficient for "
-                "our current portfolio of engagements.\n\n"
+                "DataNova is a modern data and analytics platform built around "
+                "an open-table semantic layer, governed self-service, and "
+                "AI-assisted exploration. Founded in 2016, we serve 240+ "
+                "customers including several global hyperscalers, leading "
+                "consumer-internet brands, and US federal agencies. Our "
+                "headcount is 950 employees across the US (Seattle HQ), "
+                "Ireland (Dublin engineering), and Singapore (APAC support and "
+                "field engineering). We are profitable on a free-cash-flow "
+                "basis and reported $310M in ARR in our most recent fiscal "
+                "year, growing at 42% year-over-year.\n\n"
+                "DataNova is differentiated by three structural commitments: "
+                "(a) a single composable platform rather than a suite of "
+                "loosely integrated products; (b) open table formats (Iceberg, "
+                "Delta) as a first-class storage substrate so customer data "
+                "remains portable; and (c) a transparent commercial posture "
+                "that emphasizes ease of exit. We believe customers should "
+                "stay because the product is the best fit, not because the "
+                "contract makes leaving expensive.\n\n"
 
-                "2. UNDERSTANDING OF REQUIREMENTS\n\n"
-                "We see Airbnb's events portfolio as an opportunity to create belonging at scale. "
-                "Your four major events and 8–12 team events are not just logistical exercises — "
-                "they are expressions of Airbnb's culture and values. Each should feel intentional, "
-                "human, and unforgettable.\n\n"
-                "We understand you need a partner who can handle the full production lifecycle: "
-                "venue sourcing, catering, A/V, travel, and reporting. But more importantly, you "
-                "need a creative partner who can elevate each event from a meeting into an experience.\n\n"
+                "2. COMMERCIAL TERMS\n\n"
+                "DataNova offers a 3-year per-named-user subscription with the "
+                "following tiering:\n\n"
+                "  Tier 1 (0-1K seats):  list $400/user/year, 15% volume "
+                "discount, net price $340/user/year.\n"
+                "  Tier 2 (1K-5K seats): list $340/user/year, 20% volume "
+                "discount, net price $272/user/year.\n"
+                "  Tier 3 (5K+ seats):   list $300/user/year, 30% volume "
+                "discount, net price $210/user/year.\n\n"
+                "Pricing is locked for the full 3-year term with no CPI "
+                "escalator and no list-price uplift on renewal anniversaries. "
+                "Tier banding is calculated on average seats per fiscal year, "
+                "trued up annually within 30 days of fiscal year close. "
+                "Volume discounts are applied automatically once the average "
+                "seat count crosses the next tier breakpoint.\n\n"
+                "Implementation fee: $50,000 one-time. Reflects our "
+                "standardized deployment toolkit and template-based migration "
+                "accelerators. Includes identity integration, three connectors, "
+                "4 weeks of implementation engineering, and a 30-day "
+                "post-go-live hypercare period staffed by a senior solution "
+                "architect. Additional connectors are included free of charge "
+                "for any source system covered by the DataNova certified "
+                "connector catalog.\n\n"
+                "Annual support: 20% of license. Includes 24x7 P1 coverage, "
+                "named Customer Success Manager, embedded Slack channel with "
+                "our engineering team, quarterly architecture reviews, and "
+                "unlimited admin-track training seats. Severity-1 issues "
+                "carry a 15-minute response commitment with named-engineer "
+                "callout.\n\n"
 
-                "3. PROPOSED APPROACH\n\n"
-                "Creative Direction: Every event begins with a story. Our creative directors develop "
-                "a narrative arc for each event that ties back to Airbnb's mission and current "
-                "company priorities. We don't do cookie-cutter events.\n\n"
-                "Immersive Experiences: We specialize in AR-integrated activations, custom event "
-                "apps with real-time engagement features (live polls, networking matchmaking, "
-                "content sharing), and spatial design that transforms venues into branded worlds. "
-                "For Airbnb's Summer Celebration, imagine an AR scavenger hunt through a curated "
-                "neighborhood that brings the 'belong anywhere' concept to life.\n\n"
-                "Venue Sourcing: We work with unconventional venues — art galleries, rooftop farms, "
-                "historic theaters, cultural spaces — that reflect Airbnb's brand personality. We "
-                "also source traditional conference spaces when the event calls for it.\n\n"
-                "Catering: We partner with local, chef-driven caterers who create menus inspired by "
-                "the event theme and local food culture. All menus include dietary accommodation.\n\n"
-                "A/V & Production: We work with a trusted network of production partners and bring "
-                "our own creative technologists to integrate digital experiences into the physical "
-                "event space.\n\n"
-                "Post-Event Insights: We deliver post-event decks within 7 business days that go "
-                "beyond satisfaction surveys to include engagement analytics, social media impact, "
-                "and creative performance metrics.\n\n"
+                "3. SERVICE LEVELS\n\n"
+                "Uptime SLA: 99.95% measured monthly. SLA credit: 20% of "
+                "monthly recurring revenue (MRR) per month of breach, with "
+                "no aggregate cap. Credits are issued automatically and "
+                "applied against the next invoice.\n\n"
 
-                "4. TEAM & STAFFING\n\n"
-                "Your Mosaic team:\n"
-                "- Jordan Martinez, Creative Director: Jordan is the creative visionary behind some "
-                "of our most celebrated events. Jordan led Stripe's 2024 Global Summit, which was "
-                "named 'Corporate Event of the Year' by Event Marketer. Jordan also managed Figma's "
-                "Annual User Conference, transforming it from a 500-person gathering into a 3,000-person "
-                "cultural event. Jordan is the heart of this engagement and will be personally involved "
-                "in every major event.\n"
-                "- 2 Senior Event Coordinators\n"
-                "- Production support drawn from our 45-person team as needed\n\n"
-                "Jordan's involvement is what makes this partnership special. Their creative intuition "
-                "and deep understanding of tech culture is unmatched in our industry.\n\n"
+                "4. SECURITY, COMPLIANCE & DATA PRIVACY\n\n"
+                "DataNova holds SOC 2 Type II (audited annually with no "
+                "exceptions) and is a registered processor under GDPR Article "
+                "28 with executed Data Processing Addenda available "
+                "pre-signing. FedRAMP Moderate is in process and expected by "
+                "end of next fiscal year. We support customer-managed keys, "
+                "BYOK with HSM backing in GovCloud, full audit-trail export "
+                "to customer SIEMs, and field-level dynamic masking for "
+                "PII/PHI workloads.\n\n"
+                "Data residency: US, EU, and GovCloud. All three regions are "
+                "production-grade and generally available today. The customer "
+                "can designate region of record at provisioning, and DataNova "
+                "guarantees that all production data, backups, and replicas "
+                "remain inside the chosen region. Cross-region access for "
+                "support purposes requires explicit written authorization "
+                "from the customer's security organization.\n\n"
 
-                "5. PRICING\n\n"
-                "Mosaic proposes a Time & Materials model with monthly fee caps to provide cost "
-                "control while maintaining the flexibility to scale creative investment up or down "
-                "based on event complexity.\n\n"
-                "Annual budget: $1,800,000 (estimated)\n"
-                "- Creative Director: $250/hour\n"
-                "- Senior Coordinator: $175/hour\n"
-                "- Production Staff: $125/hour\n"
-                "- Monthly cap: $150,000\n\n"
-                "Pass-through costs (venue, catering, A/V rental, travel) are billed at cost with "
-                "no markup.\n\n"
-                "Payment terms: Net 30 from invoice date.\n\n"
-                "We do not include a price escalation clause. Our rates are reviewed annually and "
-                "adjusted based on market conditions, which we discuss transparently with our clients.\n\n"
+                "5. TERMINATION CLAUSE\n\n"
+                "Either party may terminate this agreement with 30 days "
+                "written notice. There is no fee after Year 1: if Airbnb "
+                "terminates for convenience after the completion of the "
+                "first contract year, no early-termination penalty is "
+                "payable. Termination during Year 1 requires payment of "
+                "remaining Year 1 fees only.\n\n"
 
-                "6. TERMS & CONDITIONS\n\n"
-                "Contract Duration: 2 years.\n"
-                "Termination: Either party may terminate with 30 days written notice. No cure period "
-                "— we believe that if a partnership isn't working, both parties should be free to "
-                "move on quickly.\n\n"
-                "Service Commitments: Rather than a traditional SLA document, Mosaic operates under "
-                "a Service Commitment Framework:\n"
-                "- We will respond to requests typically within 24 hours during business days\n"
-                "- We will use best efforts to meet all agreed timelines\n"
-                "- We will provide regular updates through our preferred communication channels\n"
-                "- If issues arise, we will work collaboratively with Airbnb to resolve them "
-                "expeditiously\n"
-                "We find that rigid SLA structures can create adversarial dynamics. Our approach "
-                "prioritizes partnership and open communication over contractual penalties.\n\n"
-                "Intellectual Property: All event concepts are co-owned. Mosaic retains the right "
-                "to showcase work in our portfolio (with Airbnb's approval on specific assets).\n"
-                "Insurance: $1M general liability.\n"
-                "Data Protection: We comply with applicable data protection regulations.\n\n"
-
-                "7. REFERENCES\n\n"
-                "- Stripe: Led Stripe's 2024 Global Summit across 3 cities (San Francisco, London, "
-                "Singapore) with 5,000+ total attendees. Contact: Aisha Patel, Head of Events.\n"
-                "- Figma: Managed Figma's Annual User Conference for 2 consecutive years, growing "
-                "attendance from 500 to 3,000. Contact: Raj Krishnamurthy, VP of Community.\n"
-                "- Notion: Designed and produced Notion's first-ever company retreat for 800 "
-                "employees across 15 countries. Contact: Elena Vasquez, Chief of Staff.\n"
+                "6. REFERENCES\n\n"
+                "Two Fortune 100 financial-services customers (under NDA), "
+                "Snowflake (3,800 seats), and the US Department of Energy "
+                "(GovCloud). Reference contacts available on request "
+                "following mutual NDA execution. Each reference customer "
+                "has been live on the DataNova platform for at least two "
+                "years and is willing to discuss real-world deployment "
+                "experience, including platform stability, support quality, "
+                "and the practical mechanics of our termination terms."
             ),
+            "structured_data": {
+                "term_years": 3,
+                "tier_seats": ["0-1K", "1K-5K", "5K+"],
+                "tier_list_price": [400, 340, 300],
+                "tier_volume_discount_pct": [15, 20, 30],
+                "tier_net_price": [340, 272, 210],
+                "implementation_fee": 50_000,
+                "annual_support_pct": 20,
+                "uptime_sla": 99.95,
+                "sla_credit_pct": 20,
+                "data_privacy_certs": ["SOC 2 Type II", "GDPR Article 28"],
+                "certs_caveat": None,
+                "data_residency": ["US", "EU", "GovCloud"],
+                "termination_notice_days": 30,
+                "termination_penalty_formula": "No fee after Year 1",
+            },
         },
     ],
 }
