@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from airbnb_context import AIRBNB_CONTEXT
-from findings_engine import run_all_findings
+from findings_engine import aggregate_hidden_risks, run_all_findings
 from prompts import (
     COMPARE_SCHEMA,
     EXTRACT_SCHEMA,
@@ -149,8 +149,8 @@ html, body, [class*="css"] {
     align-self: center;
 }
 
-/* Remove Streamlit top padding */
-.block-container { padding-top: 1.5rem !important; max-width: 1200px; }
+/* Top padding clears Streamlit's toolbar so the title isn't clipped */
+.block-container { padding-top: 3rem !important; max-width: 1200px; }
 
 /* ── Sidebar ───────────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
@@ -291,6 +291,24 @@ details[data-testid="stExpander"] summary {
     box-shadow: 0 1px 4px rgba(255,90,95,0.12);
     margin-bottom: 16px;
 }
+.airbnb-card-red {
+    background: #FFFFFF;
+    border: 1px solid #EBEBEB;
+    border-left: 3px solid #D93025;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+}
+.airbnb-card-green {
+    background: #FFFFFF;
+    border: 1px solid #EBEBEB;
+    border-left: 3px solid #00A699;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+}
 
 /* ── Badges ────────────────────────────────────────────────────── */
 .badge-coral {
@@ -345,25 +363,48 @@ div[data-baseweb="slider"] div[role="progressbar"] > div {
     text-align: center; color: #767676; padding: 60px 20px; font-size: 15px;
 }
 
-/* Logo sizing */
-.airbnb-logo svg { width: 120px; height: 40px; }
-
 /* Compact header bar */
 .app-header {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 8px 0 12px 0;
+    gap: 16px;
+    padding: 16px 0 20px 0;
+    overflow: visible;
 }
-.app-header svg { width: auto; height: 30px; flex-shrink: 0; }
-.app-header-text { display: flex; flex-direction: column; }
-.app-header-title {
-    font-size: 20px; font-weight: 600; color: #222222;
-    line-height: 1.2; margin: 0;
+.app-header-logo {
+    flex-shrink: 0;
+    width: 88px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
 }
-.app-header-sub {
-    font-size: 13px; color: #767676; margin: 2px 0 0 0;
-    line-height: 1.3;
+.app-header-logo svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+.app-header-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+    line-height: 1.4;
+}
+.app-header-text p.app-header-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #222222;
+    line-height: 1.4;
+    margin: 0 0 2px 0 !important;
+    padding: 0;
+}
+.app-header-text p.app-header-sub {
+    font-size: 13px;
+    color: #767676;
+    margin: 0 !important;
+    padding: 0;
+    line-height: 1.4;
 }
 
 /* Success banner animation */
@@ -390,10 +431,22 @@ div[data-baseweb="slider"] div[role="progressbar"] > div {
 st.markdown(AIRBNB_CSS, unsafe_allow_html=True)
 
 
-# ── Helper: escape dollar signs for Streamlit markdown (prevent LaTeX) ─────
+# ── Helper: HTML-safe text for use inside unsafe_allow_html=True blocks ───
+# We do NOT escape '$' here. An earlier version replaced $ with \$ to avoid
+# Streamlit's KaTeX rendering, but inside HTML contexts (which we use
+# everywhere via render_card / st.markdown(unsafe_allow_html=True)) the
+# backslash renders literally as '\$'. KaTeX only triggers on $...$ pairs
+# in plain markdown, which we no longer use for dollar-bearing text.
 def _esc(text) -> str:
-    """Escape $ signs so Streamlit doesn't render them as LaTeX math."""
-    return str(text).replace("$", "\\$") if text else ""
+    """Sanitize text for embedding inside an HTML attribute or element."""
+    if text is None or text == "":
+        return ""
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
 
 
 # ── Helper: render card ─────────────────────────────────────────────────────
@@ -403,6 +456,8 @@ def render_card(content_html: str, variant: str = "default"):
         "coral": "airbnb-card-coral",
         "amber": "airbnb-card-amber",
         "highlight": "airbnb-card-highlight",
+        "red": "airbnb-card-red",
+        "green": "airbnb-card-green",
     }.get(variant, "airbnb-card")
     st.markdown(f'<div class="{cls}">{content_html}</div>', unsafe_allow_html=True)
 
@@ -516,7 +571,7 @@ logo_svg = logo_path.read_text() if logo_path.exists() else ""
 
 st.markdown(
     f'<div class="app-header">'
-    f'{logo_svg}'
+    f'<div class="app-header-logo">{logo_svg}</div>'
     f'<div class="app-header-text">'
     f'<p class="app-header-title">Sourcing Decision Engine &mdash; Data &amp; Analytics Renewal</p>'
     f'<p class="app-header-sub">AI-augmented analysis grounded in Airbnb sourcing context</p>'
@@ -546,9 +601,9 @@ with st.sidebar:
     # Sample data toggle
     use_sample = st.toggle("Load sample scenario", key="use_sample")
     if use_sample:
-        st.info(
-            f"Loaded: {SAMPLE_PROPOSALS['scenario_name']} with "
-            f"{len(SAMPLE_PROPOSALS['proposals'])} suppliers"
+        st.caption(
+            f"Sample loaded: D&A Platform Renewal &middot; "
+            f"{len(SAMPLE_PROPOSALS['proposals'])} suppliers."
         )
         # Populate supplier inputs
         for i, p in enumerate(SAMPLE_PROPOSALS["proposals"]):
@@ -872,13 +927,17 @@ def _build_deal_comparison_table(extracted_list, findings_list, sd_lookup):
         avail = budget.get("total_3yr_available", 0)
         if avail > 0:
             pct = req / avail * 100
-            if pct <= 95:
+            # Classify on the displayed (rounded) value so a cell that reads
+            # "95% of envelope" is unambiguously green per the spec rule
+            # (green <= 95, yellow 96-105, red > 105).
+            display_pct = round(pct)
+            if display_pct <= 95:
                 color = "green"
-            elif pct <= 105:
+            elif display_pct <= 105:
                 color = "yellow"
             else:
                 color = "red"
-            budget_cells.append((f"{pct:.0f}% of envelope", color))
+            budget_cells.append((f"{display_pct}% of envelope", color))
         else:
             budget_cells.append(("—", None))
     rows.append(_row("% of 3-year budget envelope", budget_cells))
@@ -1001,6 +1060,32 @@ with tab_compare:
             for p in SAMPLE_PROPOSALS.get("proposals", [])
         }
 
+        # ── Demo-narrative callout: tells the panelist what to look at first.
+        # Surfaces the recommended supplier and the highest-severity hidden
+        # finding from the deterministic engine in a single coral strip.
+        rec_supplier_name = comparison.get("recommended_supplier", "")
+        top_hidden = aggregate_hidden_risks(findings_list, cap=8)
+        top_high = next(
+            (h for h in top_hidden if str(h.get("severity", "")).lower() == "high"),
+            None,
+        )
+        if rec_supplier_name and top_high:
+            high_supplier = _esc(top_high.get("supplier_name", ""))
+            high_headline = _esc(top_high.get("headline", "")).rstrip(".")
+            callout_html = (
+                f'<div style="background:#FFF5F5;border:1px solid #FFD9DA;'
+                f"border-left:3px solid #FF5A5F;border-radius:8px;"
+                f'padding:12px 16px;margin:6px 0 18px 0;font-size:13px;'
+                f'color:#484848;line-height:1.5;">'
+                f"AI recommends <strong>{_esc(rec_supplier_name)}</strong> "
+                f"based on weighted criteria. Note the high-severity finding "
+                f"on <strong>{high_supplier}</strong> &mdash; "
+                f"<em>{high_headline}</em>. Human judgment should override "
+                f"the model where strategic context warrants."
+                f"</div>"
+            )
+            st.markdown(callout_html, unsafe_allow_html=True)
+
         # 1. Headline Score Cards
         st.markdown("##### Overall weighted scores")
         all_scores = []
@@ -1048,12 +1133,18 @@ with tab_compare:
                 "Load the sample scenario to see the deal comparison table."
             )
 
-        # 4. Risk Flags (top 5 by severity)
+        # 4. Risk Flags (top 5 by severity, deduped by (supplier, description))
         st.markdown("##### Top risk flags")
         all_flags = []
+        seen_flag_keys: set = set()
         for data in extracted_list:
             supplier = data.get("supplier_name", "Unknown")
             for flag in data.get("risk_flags", []):
+                desc = str(flag.get("description", "")).strip().lower()
+                key = (supplier, desc)
+                if key in seen_flag_keys:
+                    continue
+                seen_flag_keys.add(key)
                 all_flags.append({**flag, "supplier": supplier})
 
         severity_order = {"high": 0, "medium": 1, "low": 2}
@@ -1068,15 +1159,22 @@ with tab_compare:
             "medium": "badge-amber",
             "low": "badge-green",
         }
+        severity_variants = {
+            "high": "red",
+            "medium": "amber",
+            "low": "green",
+        }
 
         for flag in all_flags[:5]:
             sev = str(flag.get("severity", "low")).lower()
             badge_cls = severity_badges.get(sev, "badge-green")
+            variant = severity_variants.get(sev, "green")
             desc = _esc(flag.get("description", ""))
             supplier = _esc(flag.get("supplier", ""))
             render_card(
                 f'<span class="{badge_cls}">{sev.upper()}</span> &nbsp; '
                 f"<strong>{supplier}</strong> &mdash; {desc}",
+                variant=variant,
             )
 
         if not all_flags:
@@ -1088,10 +1186,17 @@ with tab_compare:
 
         # 6. Optional footer expander: per-dimension score detail
         with st.expander("View per-dimension score detail", expanded=False):
+            # Single-column compact layout: one row per supplier per dimension.
+            # Long rationales collapse into a per-row 'Show more' so the
+            # expander stays scannable even with three suppliers.
             for dim_key, dim_label in DIMENSION_LABELS.items():
-                st.markdown(f"**{dim_label}**")
-                cols = st.columns(len(extracted_list))
+                st.markdown(
+                    f'<p style="font-size:14px;font-weight:600;color:#222222;'
+                    f'margin:12px 0 6px 0;">{dim_label}</p>',
+                    unsafe_allow_html=True,
+                )
 
+                # Find best score for this dimension
                 best_score = -1.0
                 best_idx = -1
                 for idx, data in enumerate(extracted_list):
@@ -1101,23 +1206,57 @@ with tab_compare:
                         best_idx = idx
 
                 for idx, data in enumerate(extracted_list):
-                    with cols[idx]:
-                        s = _get_scores_from_extracted(data)
-                        score_val = s.get(dim_key, 0)
-                        supplier = data.get("supplier_name", f"Supplier {idx + 1}")
-                        rationale = _esc(
-                            _safe(data, "scores", dim_key, "rationale", default="")
-                        )
-                        if idx == best_idx:
+                    s = _get_scores_from_extracted(data)
+                    score_val = s.get(dim_key, 0)
+                    supplier = _esc(
+                        data.get("supplier_name", f"Supplier {idx + 1}")
+                    )
+                    rationale = _safe(
+                        data, "scores", dim_key, "rationale", default=""
+                    ) or ""
+                    rationale_text = str(rationale).strip()
+
+                    score_html = (
+                        f'<span class="badge-coral">{score_val}/10</span>'
+                        if idx == best_idx
+                        else f'<span style="color:#767676;">{score_val}/10</span>'
+                    )
+                    st.markdown(
+                        f'<p style="margin:4px 0 2px 0;">'
+                        f'<strong>{supplier}</strong> &nbsp; {score_html}</p>',
+                        unsafe_allow_html=True,
+                    )
+
+                    if rationale_text:
+                        # Two-line truncation threshold ~ 180 chars for 14px text.
+                        is_long = len(rationale_text) > 180
+                        if is_long:
+                            preview = rationale_text[:180].rstrip() + "..."
                             st.markdown(
-                                f"{supplier}: "
-                                f'<span class="badge-coral">{score_val}/10</span>',
+                                f'<p style="font-size:13px;color:#767676;'
+                                f'margin:0 0 6px 0;">{_esc(preview)}</p>',
                                 unsafe_allow_html=True,
                             )
+                            with st.expander(
+                                "Show full rationale",
+                                expanded=False,
+                            ):
+                                st.markdown(
+                                    f'<p style="font-size:13px;color:#484848;'
+                                    f'margin:0;">{_esc(rationale_text)}</p>',
+                                    unsafe_allow_html=True,
+                                )
                         else:
-                            st.markdown(f"{supplier}: {score_val}/10")
-                        st.caption(rationale)
-                st.markdown("---")
+                            st.markdown(
+                                f'<p style="font-size:13px;color:#767676;'
+                                f'margin:0 0 6px 0;">{_esc(rationale_text)}</p>',
+                                unsafe_allow_html=True,
+                            )
+                st.markdown(
+                    '<hr style="border:none;border-top:1px solid #F0F0F0;'
+                    'margin:12px 0;">',
+                    unsafe_allow_html=True,
+                )
 
 
 # ── TAB 3: Negotiation Brief ────────────────────────────────────────────────
@@ -1182,22 +1321,9 @@ with tab_brief:
         # ─── Section B: What the AI Caught ──────────────────────────────
         st.markdown("##### What the AI caught")
 
-        # Consolidate hidden risks across all suppliers
-        all_hidden = []
-        for fnd in findings_list:
-            for r in fnd.get("hidden_risks", []) or []:
-                all_hidden.append(r)
-
-        # Severity ranking: high first, medium variants next, low last
-        def _sev_rank(s):
-            s = str(s).lower()
-            if s == "high":
-                return 0
-            if s == "low":
-                return 2
-            return 1  # any medium-* variant
-
-        all_hidden.sort(key=lambda r: _sev_rank(r.get("severity", "low")))
+        # Consolidate hidden risks across all suppliers via the engine helper:
+        # dedupe by (supplier, headline) and cap at 8.
+        all_hidden = aggregate_hidden_risks(findings_list, cap=8)
 
         if not all_hidden:
             st.caption(
@@ -1234,6 +1360,11 @@ with tab_brief:
                 else:
                     impact_html = ""
 
+                variant_for_sev = {
+                    "HIGH": "red",
+                    "MEDIUM": "amber",
+                    "LOW": "green",
+                }[sev_label]
                 render_card(
                     f'<p style="margin:0 0 6px 0;">'
                     f'<span class="{badge_cls}">{sev_label}</span> &nbsp; '
@@ -1242,7 +1373,7 @@ with tab_brief:
                     f"{headline}</p>"
                     f"{impact_html}"
                     f'<p style="margin:0;color:#767676;font-size:13px;">{evidence}</p>',
-                    variant="amber" if sev_label == "HIGH" else "default",
+                    variant=variant_for_sev,
                 )
 
         # ─── Section C: Negotiation Moves (recommended + top alternative) ──
@@ -1395,7 +1526,26 @@ if inline_analyze:
         st.error(f"Weights must sum to 100%. Currently: {total_weight}%")
         st.stop()
 
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+    # Resolve the Anthropic API key from env var first, then Streamlit secrets.
+    # st.secrets raises StreamlitSecretNotFoundError when no secrets file exists,
+    # so guard it with a try/except.
+    import os as _os
+
+    api_key = _os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        try:
+            api_key = st.secrets.get("ANTHROPIC_API_KEY")
+        except Exception:
+            api_key = None
+    if not api_key:
+        st.error(
+            "ANTHROPIC_API_KEY is not configured. Set the ANTHROPIC_API_KEY "
+            "environment variable, or create .streamlit/secrets.toml with "
+            'ANTHROPIC_API_KEY = "sk-ant-..."'
+        )
+        st.stop()
+
+    client = anthropic.Anthropic(api_key=api_key)
 
     # Build the sourcing-context block once. All extract + compare prompts use it.
     context_block = build_context_block(AIRBNB_CONTEXT)
@@ -1433,6 +1583,15 @@ if inline_analyze:
                 st.stop()
             extracted_results.append(result)
             st.write(f"Extracted **{prop['supplier_name']}** successfully.")
+
+        # Annotate each extraction with the 0-100 weighted score so the
+        # LLM cites the correct scale in its rationale (avoids "6.1/10"
+        # confusion when our cards display "58.5/100").
+        for result in extracted_results:
+            dim_scores = _get_scores_from_extracted(result)
+            result["weighted_score_0_100"] = compute_weighted_score(
+                dim_scores, weights
+            )
 
         # Comparative analysis
         st.write("Generating comparative analysis...")

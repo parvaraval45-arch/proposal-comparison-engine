@@ -444,7 +444,54 @@ def surface_hidden_risks(
             "supplier_name": supplier_name,
         })
 
-    return risks
+    # Dedupe within this supplier by headline, then by full content.
+    # Two rules should never produce the same headline for the same supplier.
+    deduped: List[Dict[str, Any]] = []
+    seen_keys: set = set()
+    for r in risks:
+        key = (r.get("supplier_name", ""), r.get("headline", ""))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        deduped.append(r)
+    return deduped
+
+
+_SEVERITY_ORDER = {
+    "high": 0,
+    "medium-negative": 1,
+    "medium-positive": 1,
+    "medium-opportunity": 1,
+    "medium": 1,
+    "low": 2,
+}
+
+
+def aggregate_hidden_risks(
+    findings_list: List[Dict[str, Any]],
+    cap: int = 8,
+) -> List[Dict[str, Any]]:
+    """Combine per-supplier hidden_risks, dedupe by (supplier, headline), cap.
+
+    Sort order: severity high -> medium -> low. Within the same severity,
+    preserve the original supplier order so the demo is deterministic.
+    """
+    seen: set = set()
+    pooled: List[Dict[str, Any]] = []
+    for fnd in findings_list or []:
+        for r in fnd.get("hidden_risks", []) or []:
+            key = (r.get("supplier_name", ""), r.get("headline", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            pooled.append(r)
+
+    pooled.sort(
+        key=lambda r: _SEVERITY_ORDER.get(
+            str(r.get("severity", "low")).lower(), 9
+        )
+    )
+    return pooled[:cap]
 
 
 def AIRBNB_CONTEXT_FOR_RULE5(supplier, tco):
