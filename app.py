@@ -9,9 +9,12 @@ import re
 
 import streamlit as st
 
+from airbnb_context import AIRBNB_CONTEXT
+from findings_engine import run_all_findings
 from prompts import (
     COMPARE_SCHEMA,
     EXTRACT_SCHEMA,
+    build_context_block,
     get_compare_prompt,
     get_extract_prompt,
 )
@@ -25,6 +28,83 @@ from utils import (
     generate_pdf_report,
     parse_pdf,
 )
+
+
+# ── Adapter: structured_data (sample_data schema) -> findings_engine schema ─
+# The findings engine expects a flat supplier dict (net_price, support_pct,
+# uptime_sla_pct, ...). The new sample_data carries a tiered structured_data
+# dict. This adapter bridges them for the engine.
+
+_CONTRACT_FY = ("FY-2025", "FY-2026", "FY-2027")
+
+
+def _tier_index_for_seats(seats: int) -> int:
+    """Return tier index 0/1/2 matching ['0-1K', '1K-5K', '5K+']."""
+    if seats <= 1000:
+        return 0
+    if seats < 5000:
+        return 1
+    return 2
+
+
+def _parse_termination_penalty(formula: str) -> dict:
+    """Parse a plain-language termination penalty into engine penalty dict."""
+    text = (formula or "").lower()
+    if "no fee" in text or "no penalty" in text:
+        return {"type": "none", "value": 0}
+    m = re.search(r"(\d+(?:\.\d+)?)\s*%\s*of\s*remaining\s*tcv", text)
+    if m:
+        return {"type": "pct_of_remaining_tcv", "value": float(m.group(1))}
+    m2 = re.search(r"\$([\d,]+)", text)
+    if m2:
+        return {"type": "fixed", "value": float(m2.group(1).replace(",", ""))}
+    return {"type": "none", "value": 0}
+
+
+def adapt_structured_for_engine(supplier_name: str, sd: dict) -> dict:
+    """Convert sample_data structured_data dict into findings_engine input.
+
+    Computes a seat-weighted average net_price across the contract term so
+    the engine's flat-price 3-year TCO total matches the tier-aware reality.
+    """
+    tier_net_price = sd.get("tier_net_price") or [0, 0, 0]
+    total_seats = 0
+    weighted_sum = 0.0
+    for fy in _CONTRACT_FY:
+        seats = next(
+            (u.expected_seats for u in AIRBNB_CONTEXT.usage if u.fiscal_year == fy),
+            0,
+        )
+        idx = _tier_index_for_seats(seats)
+        if 0 <= idx < len(tier_net_price):
+            weighted_sum += tier_net_price[idx] * seats
+            total_seats += seats
+    representative_price = (
+        weighted_sum / total_seats if total_seats else (tier_net_price[1] if len(tier_net_price) > 1 else 0)
+    )
+
+    residency_list = sd.get("data_residency", []) or []
+    if len(residency_list) == 1:
+        residency_str = f"single-region ({residency_list[0]})"
+    elif residency_list:
+        residency_str = "multi-region (" + ", ".join(residency_list) + ")"
+    else:
+        residency_str = "unspecified"
+
+    return {
+        "supplier_name": supplier_name,
+        "net_price": round(representative_price, 2),
+        "support_pct": float(sd.get("annual_support_pct", 0)),
+        "implementation_fee": float(sd.get("implementation_fee", 0)),
+        "uptime_sla_pct": float(sd.get("uptime_sla", 0)),
+        "sla_credit_pct": float(sd.get("sla_credit_pct", 0)),
+        "termination_notice_days": int(sd.get("termination_notice_days", 0)),
+        "termination_penalty": _parse_termination_penalty(
+            sd.get("termination_penalty_formula", "")
+        ),
+        "certs": sd.get("data_privacy_certs", []) or [],
+        "data_residency": residency_str,
+    }
 
 # ── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -386,6 +466,7 @@ st.session_state.setdefault("comparison_data", None)
 st.session_state.setdefault("pdf_report", None)
 st.session_state.setdefault("analysis_done", False)
 st.session_state.setdefault("just_analyzed", False)
+st.session_state.setdefault("findings_per_supplier", [])
 st.session_state.setdefault("w_tco", 25)
 st.session_state.setdefault("w_bench", 15)
 st.session_state.setdefault("w_risk", 20)
@@ -895,12 +976,24 @@ with tab_brief:
 if inline_analyze:
     import anthropic
 
+    # Build a lookup of structured_data from the loaded sample (if any).
+    # Custom (paste/upload) proposals won't have structured_data and will
+    # therefore skip the deterministic findings step.
+    structured_lookup = {
+        p["supplier_name"]: p.get("structured_data")
+        for p in SAMPLE_PROPOSALS.get("proposals", [])
+    }
+
     proposals = []
     for i in range(st.session_state["num_suppliers"]):
         name = st.session_state.get(f"supplier_{i}_name", "").strip()
         text = st.session_state.get(f"supplier_{i}_text", "").strip()
         if name and text:
-            proposals.append({"supplier_name": name, "proposal_text": text})
+            proposals.append({
+                "supplier_name": name,
+                "proposal_text": text,
+                "structured_data": structured_lookup.get(name),
+            })
 
     if len(proposals) < 2:
         st.error("Please provide at least 2 proposals with names and text.")
@@ -912,14 +1005,35 @@ if inline_analyze:
 
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
+    # Build the sourcing-context block once. All extract + compare prompts use it.
+    context_block = build_context_block(AIRBNB_CONTEXT)
+
     extracted_results = []
+    findings_per_supplier: list[dict] = []
 
     with st.status("Analyzing proposals...", expanded=True) as status:
-        # Extract each proposal
+        # Extract each proposal -- with deterministic findings if available
         for idx, prop in enumerate(proposals):
+            sd = prop.get("structured_data")
+            if sd:
+                st.write(f"Computing deterministic findings for **{prop['supplier_name']}**...")
+                engine_input = adapt_structured_for_engine(prop["supplier_name"], sd)
+                findings = run_all_findings(engine_input, AIRBNB_CONTEXT)
+                findings_summary = json.dumps(findings, indent=2, default=str)
+            else:
+                findings = {
+                    "supplier_name": prop["supplier_name"],
+                    "note": "No structured_data available; deterministic findings skipped.",
+                }
+                findings_summary = json.dumps(findings, indent=2)
+            findings_per_supplier.append(findings)
+
             st.write(f"Extracting terms from **{prop['supplier_name']}**...")
             prompts = get_extract_prompt(
-                prop["supplier_name"], prop["proposal_text"]
+                prop["supplier_name"],
+                prop["proposal_text"],
+                context_block=context_block,
+                findings_summary=findings_summary,
             )
             result = call_claude(client, prompts["system"], prompts["user"])
             if result is None:
@@ -936,7 +1050,11 @@ if inline_analyze:
             else "Custom Proposal Comparison"
         )
         compare_prompts = get_compare_prompt(
-            extracted_results, weights, scenario
+            extracted_results,
+            weights,
+            scenario,
+            context_block=context_block,
+            all_findings=findings_per_supplier,
         )
         comparison_result = call_claude(
             client, compare_prompts["system"], compare_prompts["user"]
@@ -956,6 +1074,7 @@ if inline_analyze:
     st.session_state["extracted_data"] = extracted_results
     st.session_state["comparison_data"] = comparison_result
     st.session_state["pdf_report"] = pdf_bytes
+    st.session_state["findings_per_supplier"] = findings_per_supplier
     st.session_state["analysis_done"] = True
     st.session_state["just_analyzed"] = True
     st.rerun()

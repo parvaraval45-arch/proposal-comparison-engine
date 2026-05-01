@@ -1,5 +1,7 @@
 """Claude API prompt templates and JSON schemas for proposal analysis."""
 
+from __future__ import annotations
+
 import json
 
 
@@ -65,6 +67,12 @@ EXTRACT_SCHEMA = {
     "negotiation_leverage": [
         {"point": "string", "rationale": "string", "suggested_ask": "string"},
     ],
+    "grounding_sources": [
+        {
+            "record": "string (e.g., 'Industry Benchmark: Price/User/Year median $250')",
+            "used_for": "string (which finding/score it informed)",
+        },
+    ],
 }
 
 COMPARE_SCHEMA = {
@@ -112,6 +120,12 @@ COMPARE_SCHEMA = {
         "what_could_go_wrong": ["string"],
         "contingency_recommendation": "string",
     },
+    "grounding_sources": [
+        {
+            "record": "string (e.g., 'Pre-computed Finding: AlphaBI 3-yr TCO $3.58M')",
+            "used_for": "string (which finding/recommendation it informed)",
+        },
+    ],
 }
 
 
@@ -168,6 +182,15 @@ SYSTEM_PROMPT_EXTRACT = (
     "Reserve 0-3 for clearly deficient areas.\n"
     "- When information is missing or ambiguous, note it explicitly as a gap. "
     "Missing information should negatively impact the relevant score.\n\n"
+    "GROUNDING REQUIREMENT:\n"
+    "Numerical values (TCO, benchmark deltas, budget alignment, exit cost, "
+    "integration coverage) are pre-computed in the PRE-COMPUTED FINDINGS "
+    "section. DO NOT recompute them. Reference them directly in your "
+    "rationale. When citing dollar figures or percentages, ONLY use values "
+    "from PRE-COMPUTED FINDINGS -- never invent figures. Populate the "
+    "grounding_sources array with 4-8 named records (drawn from AIRBNB "
+    "SOURCING CONTEXT or PRE-COMPUTED FINDINGS) that you actually used to "
+    "form your scores and rationale.\n\n"
     "OUTPUT: Return ONLY valid JSON matching the schema below. No markdown, "
     "no preamble, no explanation outside JSON."
 )
@@ -208,6 +231,15 @@ SYSTEM_PROMPT_COMPARE = (
     "dimensions. Always note: 'Final decision should consider strategic "
     "context, relationship history, and factors beyond this analysis.'\n\n"
     "Use the following evaluation weights: {weights_json}\n\n"
+    "GROUNDING REQUIREMENT:\n"
+    "Numerical values (TCO, benchmark deltas, budget alignment, exit cost, "
+    "integration coverage) are pre-computed in the PRE-COMPUTED FINDINGS "
+    "section. DO NOT recompute them. Reference them directly in your "
+    "rationale. When citing dollar figures or percentages, ONLY use values "
+    "from PRE-COMPUTED FINDINGS -- never invent figures. Populate the "
+    "grounding_sources array with 4-8 named records (drawn from AIRBNB "
+    "SOURCING CONTEXT or PRE-COMPUTED FINDINGS) that you actually used to "
+    "form the recommendation, top risks, and negotiation strategy.\n\n"
     "OUTPUT: Return ONLY valid JSON matching the schema below. No markdown, "
     "no preamble."
 )
@@ -219,22 +251,39 @@ SYSTEM_PROMPT_COMPARE = (
 
 USER_PROMPT_EXTRACT = (
     "Analyze the following supplier proposal. Extract all commercial terms, "
-    "score against the 6 evaluation dimensions, identify risk flags, and "
+    "score against the 7 evaluation dimensions, identify risk flags, and "
     "surface negotiation leverage points.\n\n"
+    "=== AIRBNB SOURCING CONTEXT ===\n"
+    "{context_block}\n"
+    "=== END AIRBNB SOURCING CONTEXT ===\n\n"
+    "=== PRE-COMPUTED FINDINGS (deterministic -- do not recompute) ===\n"
+    "{findings_summary}\n"
+    "=== END PRE-COMPUTED FINDINGS ===\n\n"
     "Supplier Name: {supplier_name}\n\n"
     "Proposal Text:\n"
     "---\n"
     "{proposal_text}\n"
     "---\n\n"
-    "Return your analysis as JSON matching this exact schema:\n"
+    "Return your analysis as JSON matching this exact schema. Remember to "
+    "populate grounding_sources with 4-8 records you actually used.\n"
     "{json_schema}"
 )
 
 USER_PROMPT_COMPARE = (
     "Here are the individual analyses of {num_suppliers} supplier proposals "
     "for: {scenario_name}\n\n"
-    "{all_extracted_data_json}\n\n"
-    "Return your comparative analysis as JSON matching this exact schema:\n"
+    "=== AIRBNB SOURCING CONTEXT ===\n"
+    "{context_block}\n"
+    "=== END AIRBNB SOURCING CONTEXT ===\n\n"
+    "=== PRE-COMPUTED FINDINGS (deterministic -- do not recompute) ===\n"
+    "{all_findings_json}\n"
+    "=== END PRE-COMPUTED FINDINGS ===\n\n"
+    "=== INDIVIDUAL EXTRACTIONS (LLM scores and rationales) ===\n"
+    "{all_extracted_data_json}\n"
+    "=== END INDIVIDUAL EXTRACTIONS ===\n\n"
+    "Return your comparative analysis as JSON matching this exact schema. "
+    "Remember to populate grounding_sources with 4-8 records you actually "
+    "used.\n"
     "{comparison_schema}"
 )
 
@@ -243,8 +292,36 @@ USER_PROMPT_COMPARE = (
 # Helper Functions
 # ---------------------------------------------------------------------------
 
-def get_extract_prompt(supplier_name: str, proposal_text: str) -> dict:
+def build_context_block(context) -> str:
+    """Return a markdown summary of the sourcing context for prompt injection.
+
+    Wraps ``context.to_prompt_context()`` so callers have a single, named
+    helper to use. Result is under 1500 characters.
+    """
+    return context.to_prompt_context()
+
+
+def get_extract_prompt(
+    supplier_name: str,
+    proposal_text: str,
+    context_block: str = "",
+    findings_summary: str = "",
+) -> dict:
     """Build the system + user messages for single-proposal extraction.
+
+    Parameters
+    ----------
+    supplier_name:
+        Name of the supplier whose proposal is being analyzed.
+    proposal_text:
+        Full text of the supplier proposal.
+    context_block:
+        Markdown-formatted Airbnb sourcing context (from
+        ``build_context_block``). Injected under AIRBNB SOURCING CONTEXT.
+    findings_summary:
+        Pre-computed deterministic findings for this supplier (typically a
+        JSON dump of ``run_all_findings()``). Injected under
+        PRE-COMPUTED FINDINGS.
 
     Returns a dict with ``system`` and ``user`` keys containing the
     formatted prompt strings ready for the Claude API.
@@ -252,6 +329,8 @@ def get_extract_prompt(supplier_name: str, proposal_text: str) -> dict:
     formatted_user = USER_PROMPT_EXTRACT.format(
         supplier_name=supplier_name,
         proposal_text=proposal_text,
+        context_block=context_block or "(no context provided)",
+        findings_summary=findings_summary or "(no pre-computed findings provided)",
         json_schema=json.dumps(EXTRACT_SCHEMA, indent=2),
     )
     return {
@@ -264,6 +343,8 @@ def get_compare_prompt(
     extracted_data_list: list[dict],
     weights: dict,
     scenario_name: str,
+    context_block: str = "",
+    all_findings: list[dict] | None = None,
 ) -> dict:
     """Build the system + user messages for comparative analysis.
 
@@ -276,6 +357,13 @@ def get_compare_prompt(
         ``{"tco_budget_fit": 25, "pricing_vs_benchmark": 15, ...}``.
     scenario_name:
         Human-readable name of the sourcing scenario.
+    context_block:
+        Markdown-formatted Airbnb sourcing context (from
+        ``build_context_block``).
+    all_findings:
+        List of per-supplier findings dicts produced by
+        ``findings_engine.run_all_findings``. Injected under
+        PRE-COMPUTED FINDINGS.
 
     Returns a dict with ``system`` and ``user`` keys.
     """
@@ -285,6 +373,8 @@ def get_compare_prompt(
     formatted_user = USER_PROMPT_COMPARE.format(
         num_suppliers=len(extracted_data_list),
         scenario_name=scenario_name,
+        context_block=context_block or "(no context provided)",
+        all_findings_json=json.dumps(all_findings or [], indent=2, default=str),
         all_extracted_data_json=json.dumps(extracted_data_list, indent=2),
         comparison_schema=json.dumps(COMPARE_SCHEMA, indent=2),
     )
