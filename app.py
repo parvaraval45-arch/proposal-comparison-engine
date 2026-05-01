@@ -109,7 +109,7 @@ def adapt_structured_for_engine(supplier_name: str, sd: dict) -> dict:
 # ── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Proposal Comparison Engine",
-    page_icon="\U0001f4ca",
+    # page_icon intentionally omitted for enterprise look
     layout="wide",
 )
 
@@ -120,10 +120,37 @@ AIRBNB_CSS = """
 html, body, [class*="css"] {
     font-family: -apple-system, "Cereal", "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #484848;
+    font-size: 14px;
+}
+
+/* Captions and small text */
+.stCaption, [data-testid="stCaptionContainer"] {
+    color: #767676 !important;
+    font-size: 12px !important;
+    line-height: 1.5;
+}
+
+/* Section headers tighter */
+.stMarkdown h5 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222222;
+    margin: 16px 0 10px 0 !important;
+    letter-spacing: -0.1px;
+}
+
+/* App header right-aligned meta label */
+.app-header-meta {
+    margin-left: auto;
+    font-size: 11px;
+    color: #767676;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    align-self: center;
 }
 
 /* Remove Streamlit top padding */
-.block-container { padding-top: 2rem !important; max-width: 1200px; }
+.block-container { padding-top: 1.5rem !important; max-width: 1200px; }
 
 /* ── Sidebar ───────────────────────────────────────────────────── */
 section[data-testid="stSidebar"] {
@@ -234,7 +261,7 @@ details[data-testid="stExpander"] summary {
     background: #FFFFFF;
     border: 1px solid #EBEBEB;
     border-radius: 12px;
-    padding: 24px;
+    padding: 16px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     margin-bottom: 16px;
 }
@@ -243,7 +270,7 @@ details[data-testid="stExpander"] summary {
     border: 1px solid #EBEBEB;
     border-left: 3px solid #FF5A5F;
     border-radius: 12px;
-    padding: 24px;
+    padding: 16px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     margin-bottom: 16px;
 }
@@ -252,7 +279,7 @@ details[data-testid="stExpander"] summary {
     border: 1px solid #EBEBEB;
     border-left: 3px solid #FFB400;
     border-radius: 12px;
-    padding: 24px;
+    padding: 16px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     margin-bottom: 16px;
 }
@@ -260,7 +287,7 @@ details[data-testid="stExpander"] summary {
     background: #FFFFFF;
     border: 2px solid #FF5A5F;
     border-radius: 12px;
-    padding: 24px;
+    padding: 16px;
     box-shadow: 0 1px 4px rgba(255,90,95,0.12);
     margin-bottom: 16px;
 }
@@ -288,7 +315,7 @@ details[data-testid="stExpander"] summary {
 }
 
 /* ── Misc ──────────────────────────────────────────────────────── */
-.divider { border: none; border-top: 1px solid #EBEBEB; margin: 16px 0; }
+.divider { border: none; border-top: 1px solid #F0F0F0; margin: 24px 0; }
 
 /* Slider coral accent */
 .stSlider [data-testid="stThumbValue"] { color: #FF5A5F; }
@@ -491,34 +518,27 @@ st.markdown(
     f'<div class="app-header">'
     f'{logo_svg}'
     f'<div class="app-header-text">'
-    f'<p class="app-header-title">Supplier Proposal Comparison Engine</p>'
-    f'<p class="app-header-sub">AI&#8209;augmented sourcing intelligence</p>'
-    f'</div></div>'
+    f'<p class="app-header-title">Sourcing Decision Engine &mdash; Data &amp; Analytics Renewal</p>'
+    f'<p class="app-header-sub">AI-augmented analysis grounded in Airbnb sourcing context</p>'
+    f'</div>'
+    f'<div class="app-header-meta">Internal demo &middot; Sourcing Operations &amp; Innovation</div>'
+    f'</div>'
     f'<hr class="divider">',
     unsafe_allow_html=True,
 )
 
-# Success banner after analysis
+# Static analysis-complete notice (no animation)
 if st.session_state.get("just_analyzed"):
     st.markdown(
-        '<div class="success-banner">'
-        "Analysis complete! Switch to the <strong>Comparison Matrix</strong> or "
-        "<strong>Negotiation Brief</strong> tabs to see results."
-        "</div>",
+        '<p style="color:#00A699;font-size:13px;margin:4px 0 16px 0;">'
+        "Analysis complete. View results in the Comparison Matrix or "
+        "Negotiation Brief tabs."
+        "</p>",
         unsafe_allow_html=True,
     )
     st.session_state["just_analyzed"] = False
 
-# Context banner (collapsible)
-with st.expander("Where This Fits in the Sourcing Operating Model", expanded=False):
-    st.markdown(
-        """
-- **Stage**: Post-RFP proposal evaluation — after suppliers have submitted and before shortlist decisions
-- **Users**: Sourcing analysts and category managers preparing evaluation summaries for leadership
-- **Decisions informed**: Supplier shortlisting, negotiation strategy, and clarification round planning — not final contract sign-off
-- **Human validation required**: All AI-generated scores and recommendations must be reviewed by a sourcing professional before action
-""",
-    )
+# (Where-this-fits expander removed for enterprise demo polish.)
 
 
 # ── Sidebar ─────────────────────────────────────────────────────────────────
@@ -704,7 +724,7 @@ with st.expander("Airbnb Sourcing Context — Knowledge Base", expanded=False):
 
 # ── Main content — 3 Tabs ──────────────────────────────────────────────────
 tab_input, tab_compare, tab_brief = st.tabs(
-    ["\U0001f4c4 Input Proposals", "\U0001f4ca Comparison Matrix", "\U0001f4cb Negotiation Brief"]
+    ["Input Proposals", "Comparison Matrix", "Negotiation Brief"]
 )
 
 
@@ -771,7 +791,7 @@ with tab_input:
 
     inline_can_analyze = valid_proposals >= 2 and total_weight == 100
     inline_analyze = st.button(
-        "Run Comparison & Generate Negotiation Brief  \u2192",
+        "Run comparison and generate negotiation brief",
         type="primary",
         use_container_width=True,
         disabled=not inline_can_analyze,
