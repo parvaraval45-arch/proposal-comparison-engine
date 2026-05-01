@@ -52,12 +52,13 @@ SUPPLIER_FILL_COLORS = [
 ]
 
 DIMENSION_LABELS = {
-    "cost_competitiveness": "Cost Competitiveness",
-    "scope_quality": "Scope & Quality",
-    "service_reliability": "Service Reliability",
+    "tco_budget_fit": "TCO & Budget Fit",
+    "pricing_vs_benchmark": "Pricing vs Benchmark",
     "risk_profile": "Risk Profile",
-    "flexibility": "Flexibility",
-    "esg_alignment": "ESG Alignment",
+    "integration_readiness": "Integration Readiness",
+    "operational_reliability": "Operational Reliability",
+    "strategic_optionality": "Strategic Optionality",
+    "esg_diversity": "ESG & Diversity",
 }
 
 
@@ -331,18 +332,19 @@ def generate_pdf_report(
     # --- 2. Scoring Summary ---
     _section_header("2. Scoring Summary")
     dim_labels = {
-        "cost_competitiveness": "Cost",
-        "scope_quality": "Scope",
-        "service_reliability": "Reliability",
+        "tco_budget_fit": "TCO",
+        "pricing_vs_benchmark": "Bench",
         "risk_profile": "Risk",
-        "flexibility": "Flexibility",
-        "esg_alignment": "ESG",
+        "integration_readiness": "Integ",
+        "operational_reliability": "Ops",
+        "strategic_optionality": "Optn",
+        "esg_diversity": "ESG",
     }
     # Use available page width for columns
     usable_w = pdf.w - pdf.l_margin - pdf.r_margin
     num_dims = len(dim_labels)
-    col_w_total = 24
-    col_w_dim = 20
+    col_w_total = 22
+    col_w_dim = 17
     col_w_name = usable_w - (num_dims * col_w_dim) - col_w_total
 
     # Header row
@@ -420,7 +422,7 @@ def generate_pdf_report(
         "Scope & Deliverables": "scope_and_deliverables",
         "Service Levels": "service_levels",
         "Risk Factors": "risk_factors",
-        "Flexibility": "flexibility",
+        "Contract Flexibility": "contract_flexibility",
         "ESG & Diversity": "esg_and_diversity",
     }
 

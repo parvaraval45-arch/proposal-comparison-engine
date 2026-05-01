@@ -386,12 +386,13 @@ st.session_state.setdefault("comparison_data", None)
 st.session_state.setdefault("pdf_report", None)
 st.session_state.setdefault("analysis_done", False)
 st.session_state.setdefault("just_analyzed", False)
-st.session_state.setdefault("w_cost", 25)
-st.session_state.setdefault("w_scope", 20)
-st.session_state.setdefault("w_reliability", 20)
-st.session_state.setdefault("w_risk", 15)
-st.session_state.setdefault("w_flexibility", 10)
-st.session_state.setdefault("w_esg", 10)
+st.session_state.setdefault("w_tco", 25)
+st.session_state.setdefault("w_bench", 15)
+st.session_state.setdefault("w_risk", 20)
+st.session_state.setdefault("w_integ", 20)
+st.session_state.setdefault("w_ops", 10)
+st.session_state.setdefault("w_optionality", 5)
+st.session_state.setdefault("w_esg", 5)
 
 # Supplier inputs
 for _i in range(3):
@@ -471,26 +472,28 @@ with st.sidebar:
     st.markdown("#### Evaluation Criteria Weights")
     st.caption("Adjust to reflect your sourcing priorities. Must sum to 100%.")
 
-    w_cost = st.slider("Cost Competitiveness", 0, 50, step=5, key="w_cost")
-    w_scope = st.slider("Scope & Quality", 0, 50, step=5, key="w_scope")
-    w_reliability = st.slider("Service Reliability", 0, 50, step=5, key="w_reliability")
+    w_tco = st.slider("TCO & Budget Fit", 0, 50, step=5, key="w_tco")
+    w_bench = st.slider("Pricing vs Benchmark", 0, 50, step=5, key="w_bench")
     w_risk = st.slider("Risk Profile", 0, 50, step=5, key="w_risk")
-    w_flexibility = st.slider("Flexibility", 0, 50, step=5, key="w_flexibility")
-    w_esg = st.slider("ESG Alignment", 0, 50, step=5, key="w_esg")
+    w_integ = st.slider("Integration Readiness", 0, 50, step=5, key="w_integ")
+    w_ops = st.slider("Operational Reliability", 0, 50, step=5, key="w_ops")
+    w_optionality = st.slider("Strategic Optionality", 0, 50, step=5, key="w_optionality")
+    w_esg = st.slider("ESG & Diversity", 0, 50, step=5, key="w_esg")
 
-    total_weight = w_cost + w_scope + w_reliability + w_risk + w_flexibility + w_esg
+    total_weight = w_tco + w_bench + w_risk + w_integ + w_ops + w_optionality + w_esg
     if total_weight != 100:
         st.warning(f"Weights must sum to 100%. Currently: {total_weight}%")
     else:
         st.success("Weights sum to 100%")
 
     weights = {
-        "cost_competitiveness": w_cost,
-        "scope_quality": w_scope,
-        "service_reliability": w_reliability,
+        "tco_budget_fit": w_tco,
+        "pricing_vs_benchmark": w_bench,
         "risk_profile": w_risk,
-        "flexibility": w_flexibility,
-        "esg_alignment": w_esg,
+        "integration_readiness": w_integ,
+        "operational_reliability": w_ops,
+        "strategic_optionality": w_optionality,
+        "esg_diversity": w_esg,
     }
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
@@ -642,7 +645,7 @@ with tab_compare:
             "Scope & Deliverables": "scope_and_deliverables",
             "Service Levels": "service_levels",
             "Risk Factors": "risk_factors",
-            "Flexibility": "flexibility",
+            "Contract Flexibility": "contract_flexibility",
             "ESG & Diversity": "esg_and_diversity",
         }
 
